@@ -665,6 +665,23 @@ def find_location_parameters(road_location):
     return geo_metadata
 
 #   print(material_availability)
+
+def convert_list_values_to_markdown(results: dict) -> None:
+    for key in results:
+        value = results[key]
+
+        if isinstance(value, list):
+            markdown = f"## {key.replace('_', ' ').title()}\n"
+            for idx, item in enumerate(value, 1):
+                markdown += f"{idx}. {item.strip()}\n"
+            results[key] = markdown  # Replace the list with markdown string
+
+    results["GEOMETRIC_DESIGN"] = results["GEOMETRIC_DESIGN"] + results["PAVEMENT"] + results["IMAGE_SUMMARY"]
+    results["TRAFFIC_CONTROL"] += results["PROJECT_FACILITIES"]
+    del results["PAVEMENT"]
+    del results["PROJECT_FACILITIES"]
+    del results["IMAGE_SUMMARY"]
+
 def clean_and_format_markdown_with_deepseek(results: dict) -> None:
     for key, markdown_content in results.items():
         if key == "CURRENT_SITE":
