@@ -1,3 +1,21 @@
+import os
+import zipfile
+import rarfile
+import requests
+import tempfile
+from PIL import Image
+import sys
+from pdf2image import convert_from_path
+import openpyxl
+import subprocess
+import xlrd
+import base64
+from groq import Groq
+import shutil
+import json
+
+client = Groq(api_key="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")
+
 def validate_tender_type(tender_type):
     """Validate and normalize tender type"""
     tender_type = tender_type.lower().strip()
