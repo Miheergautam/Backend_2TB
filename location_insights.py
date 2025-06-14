@@ -1,3 +1,5 @@
+import requests
+
 from utils import call2_deepseek
 
 def find_location_parameters(road_location):
