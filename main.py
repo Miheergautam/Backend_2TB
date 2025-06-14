@@ -72,24 +72,22 @@ def process(zip_file_path):
         logging.info(f"Processed {zip_file_path} successfully.")
 
 
-        # fetchimng image based omn location
+
+        geo_location = find_location_parameters(road_location)
+        logging.info(f"Geo location for {road_location}: {geo_location}")
+
         final_images = process_and_display_images(road_location)
         logging.info(f"Final images for {road_location}: {final_images}")
         #########
-        # Save the final images to mangodb
+        # Save the final images and geo location to mongodb
         #########
 
-        geo_lacation = find_location_parameters(road_location)
-        logging.info(f"Geo location for {road_location}: {geo_lacation}")
-        #########
-        # Save geo location to MongoDB
-        #########
-
-
+        
 
         if contract_type == "epc" or contract_type == "EPC":
             logging.info("Processing for EPC contract type.")
-            from item_rate import analyze_folder, process_zone_bc, process_zone_ab, process_zone_hi, process_zone_cd, extract_zone_bc_image_info, convert_list_values_to_markdown, clean_and_format_markdown_with_deepseek
+            from epc import analyze_folder, process_zone_bc, process_zone_ab, process_zone_hi, process_zone_cd, extract_zone_bc_image_info
+            from utils import convert_list_values_to_markdown, clean_and_format_markdown_with_deepseek
 
             output = analyze_folder(WORKING_DIR)
             zone_bc_start_page = output.get("Schedule-B").get("page")
@@ -112,8 +110,31 @@ def process(zip_file_path):
             convert_list_values_to_markdown(results)
             clean_and_format_markdown_with_deepseek(results)
 
+
+        elif contract_type == "ham" or contract_type == "HAM":
+            logging.info("Processing for HAM contract type.")
+            from ham import analyze_folder, process_zone_bc, process_zone_ab, process_zone_cd, extract_zone_bc_image_info
+            from utils import convert_list_values_to_markdown, clean_and_format_markdown_with_deepseek
+            
+            output = analyze_folder(WORKING_DIR)
+            zone_bc_start_page = output.get("Schedule-B").get("page")
+            zone_bc_end_page = output.get("Schedule-C").get("page")-1
+            zone_cd_start_page = output.get("Schedule-C").get("page")
+            zone_cd_end_page = output.get("Schedule-D").get("page")-1
+            zone_ab_start_page = output.get("Schedule-A").get("page")
+            zone_ab_end_page = output.get("Schedule-A").get("page")+4
+            pdf_path = output.get("Schedule-B").get("pdf")
+
+            results = {}
+            process_zone_bc(pdf_path, zone_bc_start_page, zone_bc_end_page, results=results)
+            process_zone_ab(pdf_path, zone_ab_start_page, zone_ab_end_page, results=results)
+            process_zone_cd(pdf_path, zone_cd_start_page, zone_cd_end_page, results=results)
+            extract_zone_bc_image_info(pdf_path, zone_bc_start_page, zone_bc_end_page, results=results)
+            convert_list_values_to_markdown(results)
+            clean_and_format_markdown_with_deepseek(results)
+
             #######
-            #send the result to mango db
+            #send the result to mongo db
             #######
 
         elif contract_type == "item-rate" or contract_type == "ITEM-RATE":
@@ -139,31 +160,6 @@ def process(zip_file_path):
             ######################
             # send categories, markdown_structure, markdown_road_works, markdown_roadside_furniture to mangodb
             ######################
-
-
-
-
-
-        elif contract_type == "ham" or contract_type == "HAM":
-            logging.info("Processing for HAM contract type.")
-            from item_rate import analyze_folder, process_zone_bc, process_zone_ab, process_zone_cd, extract_zone_bc_image_info, convert_list_values_to_markdown, clean_and_format_markdown_with_deepseek
-            output = analyze_folder(WORKING_DIR)
-            zone_bc_start_page = output.get("Schedule-B").get("page")
-            zone_bc_end_page = 166
-            zone_cd_start_page = output.get("Schedule-C").get("page")
-            zone_cd_end_page = output.get("Schedule-D").get("page")-1
-            zone_ab_start_page = output.get("Schedule-A").get("page")
-            zone_ab_end_page = output.get("Schedule-A").get("page")+4
-            pdf_path = output.get("Schedule-B").get("pdf")
-
-            results = {}
-            process_zone_bc(pdf_path, zone_bc_start_page, zone_bc_end_page, results=results)
-            process_zone_ab(pdf_path, zone_ab_start_page, zone_ab_end_page, results=results)
-            process_zone_cd(pdf_path, zone_cd_start_page, zone_cd_end_page, results=results)
-            extract_zone_bc_image_info(pdf_path, zone_bc_start_page, zone_bc_end_page, results=results)
-            convert_list_values_to_markdown(results)
-            clean_and_format_markdown_with_deepseek(results)
-           
 
         elif contract_type == "bot" or contract_type == "BOT":
             logging.info("Processing for BOT contract type.")
