@@ -27,54 +27,6 @@ MODEL_NAME = "deepseek-chat"
 
 SERPAPI_API_KEY = "ee9869f199c55efdc0ae10df13c2d11b2028c7baf194ef856ab88bd00cf6822a"
 
-# def query_deepseek(prompt):
-#     headers = {
-#         "Content-Type": "application/json",
-#         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-#     }
-#     payload = {
-#         "model": MODEL_NAME,
-#         "messages": [{"role": "user", "content": prompt}],
-#         "temperature": 0.3
-#     }
-#     print("🔍 Sending request to DeepSeek...")
-#     response = requests.post(DEEPSEEK_API_URL, headers=headers, json=payload)
-#     print("✅ Received response from DeepSeek.")
-#     return response.json()["choices"][0]["message"]["content"]
-
-def query_deepseek(prompt):
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-    }
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.3
-    }
-
-    response = requests.post(DEEPSEEK_API_URL, headers=headers, json=payload)
-
-    try:
-        if response.status_code != 200:
-            print("❗ Non-200 response from DeepSeek:")
-            print("Status:", response.status_code)
-            print("Response:", response.text)
-            return ""
-
-        data = response.json()
-        if "choices" not in data:
-            print("❗ 'choices' missing in response:", json.dumps(data, indent=2))
-            return ""
-
-        return data["choices"][0]["message"]["content"]
-
-    except Exception as e:
-        print("❌ Failed to parse DeepSeek response")
-        print("Status code:", response.status_code)
-        print("Raw response:", response.text)
-        raise e
-    
 """
 Organization Type Enums:
 1. Item-rate: Traditional contract where payment is made based on measured quantities of work
@@ -429,6 +381,40 @@ def call2_deepseek(system_prompt, user_prompt, MODEL_NAME="deepseek-reasoner"):
         return f"❌ DeepSeek API error: {response.status_code} - {response.text}"
 
 
+
+def query_deepseek(prompt):
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+    }
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.3
+    }
+
+    response = requests.post(DEEPSEEK_API_URL, headers=headers, json=payload)
+
+    try:
+        if response.status_code != 200:
+            print("❗ Non-200 response from DeepSeek:")
+            print("Status:", response.status_code)
+            print("Response:", response.text)
+            return ""
+
+        data = response.json()
+        if "choices" not in data:
+            print("❗ 'choices' missing in response:", json.dumps(data, indent=2))
+            return ""
+
+        return data["choices"][0]["message"]["content"]
+
+    except Exception as e:
+        print("❌ Failed to parse DeepSeek response")
+        print("Status code:", response.status_code)
+        print("Raw response:", response.text)
+        raise e
+    
 def convert_list_values_to_markdown(results: dict) -> None:
     for key in results:
         value = results[key]
