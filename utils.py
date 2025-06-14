@@ -290,51 +290,6 @@ def process_files(root_dir):
 
     return answers
 
-def extract_page_content(page):
-    elements, table_bboxes = [], []
-    for table in page.find_tables():
-        table_bboxes.append(table.bbox)
-        elements.append({"type": "table", "top": float(table.bbox[1]), "content": table.extract()})
-
-    words = page.extract_words()
-    grouped_lines = []
-    for word in words:
-        x0, x1, top, bottom = float(word["x0"]), float(word["x1"]), float(word["top"]), float(word["bottom"])
-        if any(x0 >= bx0 and x1 <= bx1 and top >= by0 and bottom <= by1 for (bx0, by0, bx1, by1) in table_bboxes):
-            continue
-        for line in grouped_lines:
-            if abs(line["top"] - top) <= 2:
-                line["words"].append((x0, word["text"]))
-                break
-        else:
-            grouped_lines.append({"top": top, "words": [(x0, word["text"])]})
-
-    for line in grouped_lines:
-        line["words"].sort()
-        elements.append({"type": "text", "top": line["top"], "content": " ".join(word for _, word in line["words"])})
-    elements.sort(key=lambda e: e["top"])
-
-    output = []
-    for el in elements:
-        if el["type"] == "table":
-            table_text = "\n".join(" | ".join(cell or "" for cell in row) for row in el["content"])
-            output.append(f"Table:\n{table_text}")
-        else:
-            output.append(f"Text:\n{el['content']}")
-    return "\n\n".join(output)
-
-
-def find_first_excel_file(root_dir):
-    """
-    Walks through the given directory and its subdirectories to find the first
-    .xls or .xlsx file. Returns the full file path if found, else None.
-    """
-    for dirpath, dirnames, filenames in os.walk(root_dir):
-        for file in filenames:
-            if file.lower().endswith(('.xls', '.xlsx')):
-                return os.path.join(dirpath, file)
-    return None
-
 def call2_deepseek(system_prompt, user_prompt, MODEL_NAME="deepseek-reasoner"):
 
     strict_markdown_prompt = """
@@ -380,6 +335,16 @@ def call2_deepseek(system_prompt, user_prompt, MODEL_NAME="deepseek-reasoner"):
     else:
         return f"❌ DeepSeek API error: {response.status_code} - {response.text}"
 
+def find_first_excel_file(root_dir):
+    """
+    Walks through the given directory and its subdirectories to find the first
+    .xls or .xlsx file. Returns the full file path if found, else None.
+    """
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        for file in filenames:
+            if file.lower().endswith(('.xls', '.xlsx')):
+                return os.path.join(dirpath, file)
+    return None
 
 
 def query_deepseek(prompt):
@@ -414,7 +379,40 @@ def query_deepseek(prompt):
         print("Status code:", response.status_code)
         print("Raw response:", response.text)
         raise e
-    
+
+def extract_page_content(page):
+    elements, table_bboxes = [], []
+    for table in page.find_tables():
+        table_bboxes.append(table.bbox)
+        elements.append({"type": "table", "top": float(table.bbox[1]), "content": table.extract()})
+
+    words = page.extract_words()
+    grouped_lines = []
+    for word in words:
+        x0, x1, top, bottom = float(word["x0"]), float(word["x1"]), float(word["top"]), float(word["bottom"])
+        if any(x0 >= bx0 and x1 <= bx1 and top >= by0 and bottom <= by1 for (bx0, by0, bx1, by1) in table_bboxes):
+            continue
+        for line in grouped_lines:
+            if abs(line["top"] - top) <= 2:
+                line["words"].append((x0, word["text"]))
+                break
+        else:
+            grouped_lines.append({"top": top, "words": [(x0, word["text"])]})
+
+    for line in grouped_lines:
+        line["words"].sort()
+        elements.append({"type": "text", "top": line["top"], "content": " ".join(word for _, word in line["words"])})
+    elements.sort(key=lambda e: e["top"])
+
+    output = []
+    for el in elements:
+        if el["type"] == "table":
+            table_text = "\n".join(" | ".join(cell or "" for cell in row) for row in el["content"])
+            output.append(f"Table:\n{table_text}")
+        else:
+            output.append(f"Text:\n{el['content']}")
+    return "\n\n".join(output)
+
 def convert_list_values_to_markdown(results: dict) -> None:
     for key in results:
         value = results[key]
