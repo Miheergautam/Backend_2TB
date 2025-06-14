@@ -1,3 +1,5 @@
+from utils import call2_deepseek
+
 def find_location_parameters(road_location):
     terrain_response = call2_deepseek(
         "You are a geographical analyst. Provide the terrain type in 1-2 lines.",
