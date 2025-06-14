@@ -16,6 +16,8 @@ import json
 import pandas as pd
 
 from utils import unzip_all_files, process_files, find_first_excel_file, process_and_display_images, find_location_parameters
+from site_images import process_and_display_images
+from location_insights import find_location_parameters
 
 # start a logging session and log file to be saved in logs folder
 import logging
