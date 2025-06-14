@@ -1,3 +1,14 @@
+import requests
+import base64
+from PIL import Image
+from io import BytesIO
+from groq import Groq
+
+# CONFIGS
+SERPAPI_API_KEY = "ee9869f199c55efdc0ae10df13c2d11b2028c7baf194ef856ab88bd00cf6822a"
+DEEPSEEK_API_KEY = "sk-fe754eb8e5a04ec79de5c71064b5e25d"
+groq_client = Groq(api_key="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")
+
 def extract_locations_from_description(description):
     print("📌 Extracting locations from description...")
 
