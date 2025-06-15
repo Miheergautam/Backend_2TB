@@ -62,7 +62,7 @@ def process(zip_file_path):
         ensure_working_directory()
 
         shutil.move(zip_file_path, WORKING_DIR)
-        zip_all_files(WORKING_DIR)
+        unzip_all_files(WORKING_DIR)
         logging.info("Extraction complete.")
 
         # Process first pass
