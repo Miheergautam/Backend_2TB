@@ -16,8 +16,6 @@ import io
 import base64
 from groq import Groq
 
-
-
 logging.getLogger('pdfminer').setLevel(logging.ERROR)
 logging.getLogger("fitz").setLevel(logging.ERROR)
 
@@ -32,7 +30,6 @@ from utils import extract_page_content
 # 📦 Retriever Functions
 # The following functions are used to extract, filter, and match document chunks
 # =============================================================================
-
 
 def normalize(text):
     return re.sub(r'[\s\-]+', '', text.lower())
@@ -105,19 +102,19 @@ def analyze_folder(folder_path):
     abcd_candidates = []
 
     for root, dirs, files in os.walk(folder_path):
-        print(f"\n📂 Scanning directory: {root}")
+        logging.info(f"📂 Scanning directory: {root}")
         for filename in files:
             if not filename.lower().endswith(".pdf") or filename.startswith("._"):
-                print(f"⏭️ Skipping file: {filename}")
+                logging.info(f"⏭️ Skipping file: {filename}")
                 continue
 
             full_path = os.path.join(root, filename)
-            print(f"\n📄 Processing file: {filename}")
+            logging.info(f"📄 Processing file: {filename}")
 
             try:
                 all_chunks = extract_chunks_with_metadata(full_path)
             except Exception as e:
-                print(f"⚠️ Error reading {filename}: {e}")
+                logging.error(f"⚠️ Error reading {filename}: {e}")
                 continue
 
             # Check Schedule A-D
@@ -135,7 +132,7 @@ def analyze_folder(folder_path):
                     abcd_found[sched] = {"page": page, "pdf": full_path, "combo_index": combo_idx}
                     combo_score += combo_idx
                 else:
-                    print(f"❌ {sched} not found in {filename}")
+                    logging.warning(f"❌ {sched} not found in {filename}")
                     all_found = False
                     break
 
@@ -143,9 +140,9 @@ def analyze_folder(folder_path):
                 pages = [abcd_found[s]["page"] for s in ["Schedule-A", "Schedule-B", "Schedule-C", "Schedule-D"]]
                 if sorted(pages) == pages and len(set(v["pdf"] for v in abcd_found.values())) == 1:
                     abcd_candidates.append({"set": abcd_found, "combo_score": combo_score})
-                    print(f"✅ Found A–D in order in {filename} | Combo Score: {combo_score}")
+                    logging.info(f"✅ Found A–D in order in {filename} | Combo Score: {combo_score}")
                 else:
-                    print(f"⚠️ A–D found, but not in order | Combo Score: {combo_score}")
+                    logging.warning(f"⚠️ A–D found, but not in order | Combo Score: {combo_score}")
 
             # Check NIB
             if "Notice Inviting Bid" not in final_results:
@@ -159,16 +156,17 @@ def analyze_folder(folder_path):
                         "page": page,
                         "pdf": full_path
                     }
+                    logging.info(f"✅ Found Notice Inviting Bid in {filename} on page {page}")
 
     if not abcd_candidates:
-        raise ValueError("❌ Schedule A–D could not be found in any PDF. Aborting.")
+        logging.error("❌ Schedule A–D could not be found in any PDF. Aborting.")
+        raise ValueError("Schedule A–D not found")
 
-
-    if abcd_candidates:
-        best = min(abcd_candidates, key=lambda x: x["combo_score"])
-        for k, v in best["set"].items():
-            schedule_page_index[k] = v
-        print(f"✅ Selected best A–D from {os.path.basename(best['set']['Schedule-A']['pdf'])}")
+    # Choose best A-D candidate
+    best = min(abcd_candidates, key=lambda x: x["combo_score"])
+    for k, v in best["set"].items():
+        schedule_page_index[k] = v
+    logging.info(f"✅ Selected best A–D from {os.path.basename(best['set']['Schedule-A']['pdf'])}")
 
     for k, v in schedule_page_index.items():
         if v:
@@ -177,7 +175,7 @@ def analyze_folder(folder_path):
                 "pdf": v["pdf"]
             }
 
-    print(final_results)
+    logging.info(f"📋 Final Results: {json.dumps(final_results, indent=2)}")
     return final_results
 
 
@@ -206,8 +204,7 @@ def extract_zone_ab_details(text_chunk: str) -> str:
 
 def process_zone_ab(pdf_path: str, start_page: int, end_page: int, page_chunk_size: int = 5, results: dict = None) -> None:
     extracted_chunks = []
-
-    print(f"\n🚀 Starting Zone AB Extraction\n📄 PDF: {pdf_path}\n📚 Pages: {start_page} to {end_page}")
+    logger.info(f"🚀 [Zone AB] Starting Extraction | File: {pdf_path} | Pages: {start_page}-{end_page}")
 
     with pdfplumber.open(pdf_path) as pdf:
         pages = [extract_page_content(pdf.pages[i]) for i in range(start_page - 1, end_page)]
@@ -215,18 +212,20 @@ def process_zone_ab(pdf_path: str, start_page: int, end_page: int, page_chunk_si
     for i in range(0, len(pages), page_chunk_size):
         chunk_text = "\n".join(pages[i:i + page_chunk_size])
         page_range = f"{start_page + i}–{min(start_page + i + page_chunk_size - 1, end_page)}"
-        print(f"\n🚧 Processing pages {page_range}...")
+        logger.info(f"🚧 [Zone AB] Processing pages {page_range}...")
 
         try:
             output = extract_zone_ab_details(chunk_text)
-            print(f"✅ Summary received for pages {page_range}.")
+            logger.info(f"✅ [Zone AB] Summary extracted for pages {page_range}")
             extracted_chunks.append(output)
         except Exception as e:
-            print(f"❌ Error processing pages {page_range}: {e}")
+            logger.error(f"❌ [Zone AB] Error processing pages {page_range}: {e}")
             continue
 
-    results["CURRENT_SITE"] = extracted_chunks
-    print("✅ Final summarized Site Conditions and added to results.")
+    combined = " ".join(extracted_chunks)
+    cleaned = re.sub(r"(?m)^\s*\d+\.\s*", "", combined).strip()
+    results["CURRENT_SITE"] = cleaned
+    logger.info("✅ [Zone AB] Site Conditions summary stored.")
 
 
 # =============================================================================
@@ -245,21 +244,17 @@ class Topic(Enum):
     UTILITIES = "Utility, change of scope"
 
 def parse_json_from_response(response: str) -> dict:
-    """
-    Extracts the first JSON object literal (starts with '{', balanced braces) from a raw LLM response.
-    """
-
-    # Try fenced block first
+    logger.debug("🔍 Attempting to parse JSON from LLM response...")
     match = re.search(r"```json\s*(\{.*?\})\s*```", response, re.DOTALL)
     if match:
+        logger.debug("✅ Found fenced JSON block.")
         json_str = match.group(1)
-
     else:
-        # Fallback: extract literal from first '{' to its matching '}'
+        logger.debug("⚠️ No fenced block. Falling back to brace matching...")
         start = response.find("{")
         if start == -1:
+            logger.error("❌ No JSON object found in response.")
             raise ValueError("No JSON object found in response.")
-        # Find matching brace
         depth = 0
         for i, ch in enumerate(response[start:], start=start):
             if ch == "{":
@@ -267,18 +262,27 @@ def parse_json_from_response(response: str) -> dict:
             elif ch == "}":
                 depth -= 1
                 if depth == 0:
-                    json_str = response[start:i+1]
+                    json_str = response[start:i + 1]
+                    logger.debug("✅ Found JSON using brace matching.")
                     break
         else:
+            logger.error("❌ Unbalanced braces—invalid JSON")
             raise ValueError("Unbalanced braces—invalid JSON")
 
-    return json.loads(json_str)
+    try:
+        parsed_json = json.loads(json_str)
+        logger.debug("✅ JSON parsing successful.")
+        return parsed_json
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ JSON decode error: {e}")
+        raise
 
 def init_topic_dict() -> Dict[str, List[str]]:
+    logger.debug("📦 Initializing topic dictionary...")
     return {t.name: [] for t in Topic}
 
 def extract_zone_bc_details(text_chunk: str) -> Dict[str, str]:
-    print("📤 Preparing LLM prompt...")
+    logger.info("📤 Preparing LLM prompt for Zone BC extraction...")
 
     prompt = f"""
               You are analyzing a tender section related to **Zone BC** that contains descriptions of civil works. These are grouped under the following topics:
@@ -344,57 +348,59 @@ def extract_zone_bc_details(text_chunk: str) -> Dict[str, str]:
               {text_chunk}
               """
 
+    logger.debug("📨 Sending prompt to LLM...")
     response = query_deepseek(prompt)
-    print("🧠 Raw response from LLM:\n", response)
+    logger.info("🧠 Received raw response from LLM.")
+    logger.debug(f"🧾 Response Preview:\n{response[:500]}...")
 
-    # Extract JSON from markdown block
     try:
         parsed = parse_json_from_response(response)
+        logger.info("✅ Parsed JSON successfully from LLM response.")
     except Exception as exc:
-        print("❌ JSON parse failure. Raw response was:\n", response)
+        logger.error(f"❌ JSON parse failure: {exc}")
         raise
 
     return parsed
 
 def process_zone_bc(pdf_path: str, start_page: int, end_page: int, results: dict, page_chunk_size: int = 3) -> None:
-    """
-    Processes Zone BC pages and populates each topic entry directly into `results` dict.
-    No return value; modifies `results` in-place.
-    """
     topic_data = init_topic_dict()
+    logger.info(f"🚀 [Zone BC] Starting extraction | File: {pdf_path} | Pages: {start_page}-{end_page}")
 
-    print(f"\n🚀 Starting Zone BC Extraction\n📄 PDF: {pdf_path}\n📚 Pages: {start_page} to {end_page}")
-    with pdfplumber.open(pdf_path) as pdf:
-        pages = [extract_page_content(pdf.pages[i]) for i in range(start_page - 1, end_page)]
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            pages = [extract_page_content(pdf.pages[i]) for i in range(start_page - 1, end_page)]
+        logger.debug("📄 PDF pages successfully extracted.")
+    except Exception as e:
+        logger.error(f"❌ Failed to open or read PDF: {e}")
+        return
 
     for i in range(0, len(pages), page_chunk_size):
         chunk_start = i + start_page
         chunk_end = min(i + start_page + page_chunk_size - 1, end_page)
-        print(f"\n🚧 Processing page chunk {chunk_start} to {chunk_end}")
+        logger.info(f"🚧 [Zone BC] Processing page chunk {chunk_start}–{chunk_end}")
 
         chunk_text = "\n".join(pages[i:i + page_chunk_size])
-
         try:
             llm_output = extract_zone_bc_details(chunk_text)
-            print(f"✅ LLM output received for pages {chunk_start}-{chunk_end}")
+            logger.info(f"✅ [Zone BC] Output received for pages {chunk_start}-{chunk_end}")
         except Exception as e:
-            print(f"❌ Error processing pages {chunk_start}–{chunk_end}: {e}")
+            logger.error(f"❌ [Zone BC] Error processing pages {chunk_start}–{chunk_end}: {e}")
             continue
 
         for topic_str, desc in llm_output.items():
             matched_enum = next((t for t in Topic if t.value.strip() == topic_str.strip()), None)
             if matched_enum:
-                print(f"📌 Appending data to topic: {matched_enum.name}")
+                logger.info(f"📌 [Zone BC] Appending data to topic: {matched_enum.name}")
                 topic_data[matched_enum.name].append(desc.strip())
             else:
-                print(f"⚠️ Unmatched topic string: '{topic_str}' — skipping")
+                logger.warning(f"⚠️ [Zone BC] Unmatched topic string: '{topic_str}' — skipping")
 
-    print("\n✅ Zone BC Processing Completed.")
-
-    # ⬇️ Directly store in `results` dictionary
     for topic_name, entries in topic_data.items():
         results[topic_name] = entries
-    print("✅ Final summarized topics and added to results.")
+        logger.debug(f"📝 [Zone BC] Added {len(entries)} entries under topic: {topic_name}")
+
+    logger.info("✅ [Zone BC] All topics summarized and added to results.")
+
 
 # =============================================================================
 # 🏗️ Zone CD
@@ -428,8 +434,7 @@ def extract_zone_cd_details(text_chunk: str) -> str:
 
 def process_zone_cd(pdf_path: str, start_page: int, end_page: int, page_chunk_size: int = 5, results: dict = None) -> None:
     extracted_chunks = []
-
-    print(f"\n🚀 Starting Zone CD Extraction\n📄 PDF: {pdf_path}\n📚 Pages: {start_page} to {end_page}")
+    logger.info(f"🚀 [Zone CD] Starting Extraction | File: {pdf_path} | Pages: {start_page}-{end_page}")
 
     with pdfplumber.open(pdf_path) as pdf:
         pages = [extract_page_content(pdf.pages[i]) for i in range(start_page - 1, end_page)]
@@ -437,30 +442,29 @@ def process_zone_cd(pdf_path: str, start_page: int, end_page: int, page_chunk_si
     for i in range(0, len(pages), page_chunk_size):
         chunk_text = "\n".join(pages[i:i + page_chunk_size])
         page_range = f"{start_page + i}–{min(start_page + i + page_chunk_size - 1, end_page)}"
-        print(f"\n🚧 Processing pages {page_range}...")
+        logger.info(f"🚧 [Zone CD] Processing pages {page_range}...")
 
         try:
             output = extract_zone_cd_details(chunk_text)
-            print(f"✅ LLM output received for pages {page_range}.")
+            logger.info(f"✅ [Zone CD] LLM output received for pages {page_range}")
             extracted_chunks.append(output)
         except Exception as e:
-            print(f"❌ Error processing pages {page_range}: {e}")
+            logger.error(f"❌ [Zone CD] Error processing pages {page_range}: {e}")
             continue
 
     results["PROJECT_FACILITIES"] = extracted_chunks
-    print("✅ Final summarized Project Facilities and added to results.")
+    logger.info("✅ [Zone CD] Final Project Facilities added to results.")
 
 
 # =============================================================================
-# Image Analysis
+# 📸 Image Analysis
 # =============================================================================
 
 
-# Function to render a PDF page to an image
-def render_page_to_image(page) -> Image.Image:
+def render_page_to_image(page) -> bytes:
     return page.get_pixmap(dpi=150).pil_tobytes(format="PNG")
 
-# Function to analyze a single page with Groq
+
 def analyze_full_page_with_groq(pil_image_bytes: bytes) -> str:
     img_base64 = base64.b64encode(pil_image_bytes).decode("utf-8")
     image_data_url = f"data:image/png;base64,{img_base64}"
@@ -471,14 +475,8 @@ def analyze_full_page_with_groq(pil_image_bytes: bytes) -> str:
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "text",
-                        "text": "This is a page from an Indian tender Schedule B. Extract all useful content from it. Format it into readable markdown tables and bullet points. Include data from drawings, tables, or other visual information."
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": image_data_url}
-                    }
+                    {"type": "text", "text": "This is a page from an Indian tender Schedule B. Extract all useful content from it. Format it into readable markdown tables and bullet points. Include data from drawings, tables, or other visual information."},
+                    {"type": "image_url", "image_url": {"url": image_data_url}}
                 ]
             }
         ],
@@ -490,52 +488,54 @@ def analyze_full_page_with_groq(pil_image_bytes: bytes) -> str:
 
     return completion.choices[0].message.content.strip()
 
-# Function to check if a PDF page has images
+
 def page_has_images(page) -> bool:
     return len(page.get_images(full=True)) > 0
 
-# Main driver function
+
 def extract_zone_bc_image_info(pdf_path: str, start_page: int, end_page: int, results: dict = None) -> None:
     doc = fitz.open(pdf_path)
     all_responses = []
 
-    print(f"\n🖼️ Extracting image-based info from Zone BC pages {start_page} to {end_page}")
+    logging.info(f"🖼️ Extracting image-based info from Zone BC pages {start_page}–{end_page}")
 
     for page_num in range(start_page - 1, end_page):
         page = doc.load_page(page_num)
         if page_has_images(page):
-            print(f"📸 Analyzing Page {page_num + 1} (has images)...")
-            image_bytes = render_page_to_image(page)
+            logging.info(f"📸 Analyzing Page {page_num + 1} (has images)...")
             try:
+                image_bytes = render_page_to_image(page)
                 response = analyze_full_page_with_groq(image_bytes)
-                all_responses.append(f"\n### Page {page_num + 1}\n" + response)
+                all_responses.append(f"\n### Page {page_num + 1}\n{response}")
             except Exception as e:
-                print(f"❌ Error analyzing Page {page_num + 1}: {e}")
+                logging.error(f"❌ Error analyzing Page {page_num + 1}: {e}")
 
     combined_text = "\n".join(all_responses)
 
     if combined_text.strip():
-        print("\n🧠 Sending extracted image data for final summarization...")
+        logging.info("🧠 Sending extracted image data for final summarization...")
 
-        final_completion = groq_client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[
-                {
-                    "role": "user",
-                    "content": (
-                        "Based on the extracted information below, give detailed info on everything specifically related "
-                        "to **TCS** , **Road Works** and **Pavement** in structured markdown format. Only mention the **non-zero works**:\n\n"
-                        + combined_text
-                    )
-                }
-            ],
-            temperature=0.4,
-            max_completion_tokens=2048,
-            top_p=1,
-            stream=False,
-        )
-
-        results["IMAGE_SUMMARY"] = final_completion.choices[0].message.content.strip()
-        print("✅ Final summarized TCS and Road Works content added to results.")
+        try:
+            final_completion = groq_client.chat.completions.create(
+                model="meta-llama/llama-4-scout-17b-16e-instruct",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": (
+                            "Based on the extracted information below, give detailed info on everything specifically related "
+                            "to **TCS** , **Road Works** and **Pavement** in structured markdown format. Only mention the **non-zero works**:\n\n"
+                            + combined_text
+                        )
+                    }
+                ],
+                temperature=0.4,
+                max_completion_tokens=2048,
+                top_p=1,
+                stream=False,
+            )
+            results["IMAGE_SUMMARY"] = final_completion.choices[0].message.content.strip()
+            logging.info("✅ Final summarized TCS and Road Works content added to results.")
+        except Exception as e:
+            logging.error(f"❌ Error during final summarization: {e}")
     else:
-        print("⚠️ No valid image content found. Nothing to summarize.")
+        logging.warning("⚠️ No valid image content found. Nothing to summarize.")
