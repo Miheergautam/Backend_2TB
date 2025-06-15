@@ -15,13 +15,15 @@ from PIL import Image
 import io
 import base64
 from groq import Groq
-import logging
 
-# Initialize Groq client
+logging.getLogger('pdfminer').setLevel(logging.ERROR)
+logging.getLogger("fitz").setLevel(logging.ERROR)
+
 groq_client = Groq(api_key="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")
 
 from Backend_2TB.utils import query_deepseek
 from Backend_2TB.utils import extract_page_content
+
 
 # =============================================================================
 # Retriever Functions
@@ -440,6 +442,7 @@ def process_zone_bc(pdf_path: str, start_page: int, end_page: int, results: dict
 
     logger.info("✅ [Zone BC] All topics summarized and added to results.")
 
+
 # =============================================================================
 # 🏗️ Zone CD
 # =============================================================================
@@ -498,6 +501,7 @@ def process_zone_cd(pdf_path: str, start_page: int, end_page: int, page_chunk_si
 # 🏗️ Zone HI
 # =============================================================================
 
+
 def extract_zone_hi_details(text_chunk: str) -> str:
     prompt = f"""
               You are provided a section of a tender document related to **Payment Terms and Weightages**.
@@ -553,6 +557,7 @@ def process_zone_hi(pdf_path: str, start_page: int, end_page: int, page_chunk_si
 # =============================================================================
 # 📸 Image Analysis
 # =============================================================================
+
 
 def render_page_to_image(page) -> bytes:
     return page.get_pixmap(dpi=150).pil_tobytes(format="PNG")
