@@ -15,17 +15,13 @@ from PIL import Image
 import io
 import base64
 from groq import Groq
+import logging
 
 # Initialize Groq client
 groq_client = Groq(api_key="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")
 
 from Backend_2TB.utils import query_deepseek
 from Backend_2TB.utils import extract_page_content
-
-
-# Set up logging  
-logging.basicConfig(level=logging.INFO)
-
 
 # =============================================================================
 # Retriever Functions
@@ -106,22 +102,22 @@ def analyze_folder(folder_path):
     hi_candidates = []
 
     for root, dirs, files in os.walk(folder_path):
-        print(f"\n📂 Scanning directory: {root}")
+        logger.info(f"📂 Scanning directory: {root}")
         for filename in files:
             if not filename.lower().endswith(".pdf") or filename.startswith("._"):
-                print(f"⏭️ Skipping file: {filename}")
+                logger.info(f"⏭️ Skipping file: {filename}")
                 continue
 
             full_path = os.path.join(root, filename)
-            print(f"\n📄 Processing file: {filename}")
+            logger.info(f"📄 Processing file: {filename}")
 
             try:
                 all_chunks = extract_chunks_with_metadata(full_path)
+                logger.info(f"📑 Extracted {len(all_chunks)} chunks from {filename}")
             except Exception as e:
-                print(f"⚠️ Error reading {filename}: {e}")
+                logger.warning(f"⚠️ Error reading {filename}: {e}")
                 continue
 
-            # Check Schedule A-D
             abcd_found = {}
             combo_score = 0
             all_found = True
@@ -135,8 +131,9 @@ def analyze_folder(folder_path):
                 if page:
                     abcd_found[sched] = {"page": page, "pdf": full_path, "combo_index": combo_idx}
                     combo_score += combo_idx
+                    logger.info(f"✅ Found {sched} on page {page} in {filename} (Combo {combo_idx})")
                 else:
-                    print(f"❌ {sched} not found in {filename}")
+                    logger.warning(f"❌ {sched} not found in {filename}")
                     all_found = False
                     break
 
@@ -144,11 +141,10 @@ def analyze_folder(folder_path):
                 pages = [abcd_found[s]["page"] for s in ["Schedule-A", "Schedule-B", "Schedule-C", "Schedule-D"]]
                 if sorted(pages) == pages and len(set(v["pdf"] for v in abcd_found.values())) == 1:
                     abcd_candidates.append({"set": abcd_found, "combo_score": combo_score})
-                    print(f"✅ Found A–D in order in {filename} | Combo Score: {combo_score}")
+                    logger.info(f"✅ Valid A–D sequence found in {filename} | Combo Score: {combo_score}")
                 else:
-                    print(f"⚠️ A–D found, but not in order | Combo Score: {combo_score}")
+                    logger.warning(f"⚠️ A–D found, but not in order or from multiple files | Combo Score: {combo_score}")
 
-            # Check Schedule H-I
             hi_found = {}
             hi_combo_score = 0
             hi_all_found = True
@@ -162,8 +158,9 @@ def analyze_folder(folder_path):
                 if page:
                     hi_found[sched] = {"page": page, "pdf": full_path, "combo_index": combo_idx}
                     hi_combo_score += combo_idx
+                    logger.info(f"✅ Found {sched} on page {page} in {filename} (Combo {combo_idx})")
                 else:
-                    print(f"❌ {sched} not found in {filename}")
+                    logger.warning(f"❌ {sched} not found in {filename}")
                     hi_all_found = False
                     break
 
@@ -172,11 +169,10 @@ def analyze_folder(folder_path):
                 i_page = hi_found["Schedule-I"]["page"]
                 if h_page < i_page and hi_found["Schedule-H"]["pdf"] == hi_found["Schedule-I"]["pdf"]:
                     hi_candidates.append({"set": hi_found, "combo_score": hi_combo_score})
-                    print(f"✅ Found H–I in order in {filename} | Combo Score: {combo_score}")
+                    logger.info(f"✅ Valid H–I sequence found in {filename} | Combo Score: {hi_combo_score}")
                 else:
-                    print(f"⚠️ H–I found, but not in order | Combo Score: {combo_score}")
+                    logger.warning(f"⚠️ H–I found but invalid order or different files | Combo Score: {hi_combo_score}")
 
-            # Check NIB
             if "Notice Inviting Bid" not in final_results:
                 page, text, combo_idx = retrieve_by_keywords_only(
                     all_chunks,
@@ -188,24 +184,25 @@ def analyze_folder(folder_path):
                         "page": page,
                         "pdf": full_path
                     }
+                    logger.info(f"✅ Notice Inviting Bid found on page {page} in {filename}")
 
     if not abcd_candidates:
-        raise ValueError("❌ Schedule A–D could not be found in any PDF. Aborting.")
+        logger.error("❌ Schedule A–D could not be found in any PDF. Aborting.")
+        raise ValueError("Schedule A–D not found")
 
     if not hi_candidates:
-        raise ValueError("❌ Schedule H–I could not be found in any PDF. Aborting.")
+        logger.error("❌ Schedule H–I could not be found in any PDF. Aborting.")
+        raise ValueError("Schedule H–I not found")
 
-    if abcd_candidates:
-        best = min(abcd_candidates, key=lambda x: x["combo_score"])
-        for k, v in best["set"].items():
-            schedule_page_index[k] = v
-        print(f"✅ Selected best A–D from {os.path.basename(best['set']['Schedule-A']['pdf'])}")
+    best_abcd = min(abcd_candidates, key=lambda x: x["combo_score"])
+    for k, v in best_abcd["set"].items():
+        schedule_page_index[k] = v
+    logger.info(f"🏆 Selected best A–D from {os.path.basename(best_abcd['set']['Schedule-A']['pdf'])}")
 
-    if hi_candidates:
-        best = min(hi_candidates, key=lambda x: x["combo_score"])
-        for k, v in best["set"].items():
-            schedule_page_index[k] = v
-        print(f"✅ Selected best H–I from {os.path.basename(best['set']['Schedule-H']['pdf'])}")
+    best_hi = min(hi_candidates, key=lambda x: x["combo_score"])
+    for k, v in best_hi["set"].items():
+        schedule_page_index[k] = v
+    logger.info(f"🏆 Selected best H–I from {os.path.basename(best_hi['set']['Schedule-H']['pdf'])}")
 
     for k, v in schedule_page_index.items():
         if v:
@@ -214,7 +211,10 @@ def analyze_folder(folder_path):
                 "pdf": v["pdf"]
             }
 
-    print(final_results)
+    logger.info("📦 Final extracted schedule pages:")
+    for k, v in final_results.items():
+        logger.info(f"🔹 {k}: Page {v['page']} in {os.path.basename(v['pdf'])}")
+
     return final_results
 
 
@@ -243,8 +243,7 @@ def extract_zone_ab_details(text_chunk: str) -> str:
 
 def process_zone_ab(pdf_path: str, start_page: int, end_page: int, page_chunk_size: int = 5, results: dict = None) -> None:
     extracted_chunks = []
-
-    print(f"\n🚀 Starting Zone AB Extraction\n📄 PDF: {pdf_path}\n📚 Pages: {start_page} to {end_page}")
+    logger.info(f"🚀 [Zone AB] Starting Extraction | File: {pdf_path} | Pages: {start_page}-{end_page}")
 
     with pdfplumber.open(pdf_path) as pdf:
         pages = [extract_page_content(pdf.pages[i]) for i in range(start_page - 1, end_page)]
@@ -252,21 +251,20 @@ def process_zone_ab(pdf_path: str, start_page: int, end_page: int, page_chunk_si
     for i in range(0, len(pages), page_chunk_size):
         chunk_text = "\n".join(pages[i:i + page_chunk_size])
         page_range = f"{start_page + i}–{min(start_page + i + page_chunk_size - 1, end_page)}"
-        print(f"\n🚧 Processing pages {page_range}...")
+        logger.info(f"🚧 [Zone AB] Processing pages {page_range}...")
 
         try:
             output = extract_zone_ab_details(chunk_text)
-            print(f"✅ Summary received for pages {page_range}.")
+            logger.info(f"✅ [Zone AB] Summary extracted for pages {page_range}")
             extracted_chunks.append(output)
         except Exception as e:
-            print(f"❌ Error processing pages {page_range}: {e}")
+            logger.error(f"❌ [Zone AB] Error processing pages {page_range}: {e}")
             continue
 
     combined = " ".join(extracted_chunks)
     cleaned = re.sub(r"(?m)^\s*\d+\.\s*", "", combined).strip()
-
     results["CURRENT_SITE"] = cleaned
-    print("✅ Final summarized Site Conditions and added to results.")
+    logger.info("✅ [Zone AB] Site Conditions summary stored.")
 
 
 # =============================================================================
@@ -285,21 +283,17 @@ class Topic(Enum):
     UTILITIES = "Utility, change of scope"
 
 def parse_json_from_response(response: str) -> dict:
-    """
-    Extracts the first JSON object literal (starts with '{', balanced braces) from a raw LLM response.
-    """
-
-    # Try fenced block first
+    logger.debug("🔍 Attempting to parse JSON from LLM response...")
     match = re.search(r"```json\s*(\{.*?\})\s*```", response, re.DOTALL)
     if match:
+        logger.debug("✅ Found fenced JSON block.")
         json_str = match.group(1)
-
     else:
-        # Fallback: extract literal from first '{' to its matching '}'
+        logger.debug("⚠️ No fenced block. Falling back to brace matching...")
         start = response.find("{")
         if start == -1:
+            logger.error("❌ No JSON object found in response.")
             raise ValueError("No JSON object found in response.")
-        # Find matching brace
         depth = 0
         for i, ch in enumerate(response[start:], start=start):
             if ch == "{":
@@ -307,18 +301,27 @@ def parse_json_from_response(response: str) -> dict:
             elif ch == "}":
                 depth -= 1
                 if depth == 0:
-                    json_str = response[start:i+1]
+                    json_str = response[start:i + 1]
+                    logger.debug("✅ Found JSON using brace matching.")
                     break
         else:
+            logger.error("❌ Unbalanced braces—invalid JSON")
             raise ValueError("Unbalanced braces—invalid JSON")
 
-    return json.loads(json_str)
+    try:
+        parsed_json = json.loads(json_str)
+        logger.debug("✅ JSON parsing successful.")
+        return parsed_json
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ JSON decode error: {e}")
+        raise
 
 def init_topic_dict() -> Dict[str, List[str]]:
+    logger.debug("📦 Initializing topic dictionary...")
     return {t.name: [] for t in Topic}
 
 def extract_zone_bc_details(text_chunk: str) -> Dict[str, str]:
-    print("📤 Preparing LLM prompt...")
+    logger.info("📤 Preparing LLM prompt for Zone BC extraction...")
 
     prompt = f"""
               You are analyzing a tender section related to **Zone BC** that contains descriptions of civil works. These are grouped under the following topics:
@@ -384,58 +387,58 @@ def extract_zone_bc_details(text_chunk: str) -> Dict[str, str]:
               {text_chunk}
               """
 
-
+    logger.debug("📨 Sending prompt to LLM...")
     response = query_deepseek(prompt)
-    print("🧠 Raw response from LLM:\n", response)
+    logger.info("🧠 Received raw response from LLM.")
+    logger.debug(f"🧾 Response Preview:\n{response[:500]}...")
 
-    # Extract JSON from markdown block
     try:
         parsed = parse_json_from_response(response)
+        logger.info("✅ Parsed JSON successfully from LLM response.")
     except Exception as exc:
-        print("❌ JSON parse failure. Raw response was:\n", response)
+        logger.error(f"❌ JSON parse failure: {exc}")
         raise
 
     return parsed
 
 def process_zone_bc(pdf_path: str, start_page: int, end_page: int, results: dict, page_chunk_size: int = 3) -> None:
-    """
-    Processes Zone BC pages and populates each topic entry directly into `results` dict.
-    No return value; modifies `results` in-place.
-    """
     topic_data = init_topic_dict()
+    logger.info(f"🚀 [Zone BC] Starting extraction | File: {pdf_path} | Pages: {start_page}-{end_page}")
 
-    print(f"\n🚀 Starting Zone BC Extraction\n📄 PDF: {pdf_path}\n📚 Pages: {start_page} to {end_page}")
-    with pdfplumber.open(pdf_path) as pdf:
-        pages = [extract_page_content(pdf.pages[i]) for i in range(start_page - 1, end_page)]
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            pages = [extract_page_content(pdf.pages[i]) for i in range(start_page - 1, end_page)]
+        logger.debug("📄 PDF pages successfully extracted.")
+    except Exception as e:
+        logger.error(f"❌ Failed to open or read PDF: {e}")
+        return
 
     for i in range(0, len(pages), page_chunk_size):
         chunk_start = i + start_page
         chunk_end = min(i + start_page + page_chunk_size - 1, end_page)
-        print(f"\n🚧 Processing page chunk {chunk_start} to {chunk_end}")
+        logger.info(f"🚧 [Zone BC] Processing page chunk {chunk_start}–{chunk_end}")
 
         chunk_text = "\n".join(pages[i:i + page_chunk_size])
-
         try:
             llm_output = extract_zone_bc_details(chunk_text)
-            print(f"✅ LLM output received for pages {chunk_start}-{chunk_end}")
+            logger.info(f"✅ [Zone BC] Output received for pages {chunk_start}-{chunk_end}")
         except Exception as e:
-            print(f"❌ Error processing pages {chunk_start}–{chunk_end}: {e}")
+            logger.error(f"❌ [Zone BC] Error processing pages {chunk_start}–{chunk_end}: {e}")
             continue
 
         for topic_str, desc in llm_output.items():
             matched_enum = next((t for t in Topic if t.value.strip() == topic_str.strip()), None)
             if matched_enum:
-                print(f"📌 Appending data to topic: {matched_enum.name}")
+                logger.info(f"📌 [Zone BC] Appending data to topic: {matched_enum.name}")
                 topic_data[matched_enum.name].append(desc.strip())
             else:
-                print(f"⚠️ Unmatched topic string: '{topic_str}' — skipping")
+                logger.warning(f"⚠️ [Zone BC] Unmatched topic string: '{topic_str}' — skipping")
 
-    print("\n✅ Zone BC Processing Completed.")
-
-    # ⬇️ Directly store in `results` dictionary
     for topic_name, entries in topic_data.items():
         results[topic_name] = entries
-    print("✅ Final summarized topics and added to results.")
+        logger.debug(f"📝 [Zone BC] Added {len(entries)} entries under topic: {topic_name}")
+
+    logger.info("✅ [Zone BC] All topics summarized and added to results.")
 
 # =============================================================================
 # 🏗️ Zone CD
@@ -469,8 +472,7 @@ def extract_zone_cd_details(text_chunk: str) -> str:
 
 def process_zone_cd(pdf_path: str, start_page: int, end_page: int, page_chunk_size: int = 5, results: dict = None) -> None:
     extracted_chunks = []
-
-    print(f"\n🚀 Starting Zone CD Extraction\n📄 PDF: {pdf_path}\n📚 Pages: {start_page} to {end_page}")
+    logger.info(f"🚀 [Zone CD] Starting Extraction | File: {pdf_path} | Pages: {start_page}-{end_page}")
 
     with pdfplumber.open(pdf_path) as pdf:
         pages = [extract_page_content(pdf.pages[i]) for i in range(start_page - 1, end_page)]
@@ -478,19 +480,18 @@ def process_zone_cd(pdf_path: str, start_page: int, end_page: int, page_chunk_si
     for i in range(0, len(pages), page_chunk_size):
         chunk_text = "\n".join(pages[i:i + page_chunk_size])
         page_range = f"{start_page + i}–{min(start_page + i + page_chunk_size - 1, end_page)}"
-        print(f"\n🚧 Processing pages {page_range}...")
+        logger.info(f"🚧 [Zone CD] Processing pages {page_range}...")
 
         try:
             output = extract_zone_cd_details(chunk_text)
-            print(f"✅ LLM output received for pages {page_range}.")
+            logger.info(f"✅ [Zone CD] LLM output received for pages {page_range}")
             extracted_chunks.append(output)
         except Exception as e:
-            print(f"❌ Error processing pages {page_range}: {e}")
+            logger.error(f"❌ [Zone CD] Error processing pages {page_range}: {e}")
             continue
 
     results["PROJECT_FACILITIES"] = extracted_chunks
-    print("✅ Final summarized Project Facilities and added to results.")
-
+    logger.info("✅ [Zone CD] Final Project Facilities added to results.")
 
 
 # =============================================================================
