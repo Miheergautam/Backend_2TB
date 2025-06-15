@@ -2,12 +2,12 @@ import pandas as pd
 import json
 import requests
 import re
+import logging
 
 from utils import query_deepseek
 
-# Step 1: Build prompt for DeepSeek
+# ===== Prompt Builder =====
 def build_prompt_using_list_format(df):
-
     sample = df.iloc[:15].values.tolist()
 
     prompt = f"""
@@ -48,33 +48,35 @@ Here are the rows:
 """
     return prompt
 
-
 def clean_llm_json_response(response_text):
-    """
-    Removes Markdown code formatting from LLM output
-    """
-    # Remove triple backticks and language label (like ```json)
     return re.sub(r"^```(?:json|markdown)?|```$", "", response_text.strip(), flags=re.MULTILINE)
 
-
-# Step 3: Extraction Pipeline
+# ===== Extraction Pipeline =====
 def extract_boq_with_deepseek(file_path):
+    logger.info(f"🔍 Loading Excel file: {file_path}")
     df = pd.read_excel(file_path, sheet_name=0, header=None)
 
-    # Pre-cleaning
     df.dropna(axis=0, how='all', inplace=True)
     df = df.dropna(axis=1, thresh=15)
 
+    logger.info("🧠 Building DeepSeek prompt...")
     prompt = build_prompt_using_list_format(df)
 
+    logger.info("📤 Sending prompt to DeepSeek...")
     llm_response = query_deepseek(prompt)
-    cleaned_response = clean_llm_json_response(llm_response)  # Strip markdown
-    print(cleaned_response)
-    structure = json.loads(cleaned_response)
+    cleaned_response = clean_llm_json_response(llm_response)
+    logger.debug(f"🧾 Cleaned LLM response: {cleaned_response}")
+
+    try:
+        structure = json.loads(cleaned_response)
+    except Exception as e:
+        logger.error(f"❌ Failed to parse DeepSeek response: {e}")
+        raise
 
     header_row = structure["header_row"]
     columns = structure["columns"]
 
+    logger.info("📥 Reading Excel again with correct header...")
     df = pd.read_excel(file_path, sheet_name=0, header=header_row)
     df = df.rename(columns=lambda x: str(x).strip())
 
@@ -88,18 +90,17 @@ def extract_boq_with_deepseek(file_path):
     })
 
     if len(extracted_df) > 20:
+        logger.info("✂️ Trimming to first 20 rows")
         extracted_df = extracted_df.iloc[:20]
 
+    logger.info("✅ BOQ Extraction Complete")
     return extracted_df
 
-
-
-
-# ========== Classification + Summarization ==========
+# ===== Classification + Summarization =====
 def classify_and_summarize(csv_path):
+    logger.info(f"📄 Loading CSV file: {csv_path}")
     df = pd.read_csv(csv_path)
 
-    # Fill NaNs for object/string columns
     str_cols = df.select_dtypes(include=["object"]).columns
     df[str_cols] = df[str_cols].fillna("")
     all_rows = df.to_dict(orient="records")
@@ -113,6 +114,8 @@ def classify_and_summarize(csv_path):
 
     for i in range(0, len(all_rows), chunk_size):
         chunk = all_rows[i:i + chunk_size]
+        logger.info(f"🔍 Classifying chunk {i // chunk_size + 1}")
+
         prompt = (
             f"You are given a set of BOQ items. Classify **each row** strictly into one of these 3 categories:\n\n"
             f"1. Road works (including pavement)\n"
@@ -131,27 +134,25 @@ def classify_and_summarize(csv_path):
         response = query_deepseek(prompt)
 
         if not response.strip():
-            print("❌ Empty or invalid response from LLM for chunk:")
-            print(json.dumps(chunk, indent=2))
+            logger.warning("⚠️ Empty or invalid LLM response")
             continue
 
         cleaned = clean_llm_json_response(response)
-        print(f"\n===== Chunk {i // chunk_size} =====\n{cleaned}\n")
+        logger.debug(f"🔍 Cleaned JSON: {cleaned}")
 
         try:
             result = json.loads(cleaned)
         except json.JSONDecodeError as e:
-            print("❌ Failed to decode JSON from cleaned response:")
-            print(cleaned)
-            raise e
+            logger.error(f"❌ JSON Decode Error: {e}")
+            raise
 
         for key in category_tables:
             category_tables[key].extend(result.get(key, []))
 
+    logger.info("✅ Classification complete")
     return category_tables
 
-
-# ========== Markdown Summaries ==========
+# ===== Markdown Summaries =====
 def generate_markdown_summaries(category_tables):
     def build_prompt(title, items):
         return (
@@ -163,19 +164,26 @@ def generate_markdown_summaries(category_tables):
             f"- Use **headings**, **subpoints**, and **bullet points**, only give table insights and key takeaways and NOTHING ELSE (NOT EVEN BOQ ANALYSIS HEADING), keep key takeaways short with not more than 100 tokens, no need for anything else."
         )
 
-    prompt_structure = build_prompt("Structures Work", category_tables["Structures Work"])
-    prompt_road = build_prompt("Road works (including pavement)", category_tables["Road works (including pavement)"])
-    prompt_furniture = build_prompt("Roadside furniture", category_tables["Roadside furniture"])
+    prompts = {
+        "Structures Work": build_prompt("Structures Work", category_tables["Structures Work"]),
+        "Road works (including pavement)": build_prompt("Road works (including pavement)", category_tables["Road works (including pavement)"]),
+        "Roadside furniture": build_prompt("Roadside furniture", category_tables["Roadside furniture"])
+    }
 
-    markdown_structure = query_deepseek(prompt_structure)
-    markdown_road_works = query_deepseek(prompt_road)
-    markdown_roadside_furniture = query_deepseek(prompt_furniture)
+    markdown_outputs = {}
 
-    print(f"\n===== Structures Work =====\n{markdown_structure}\n")
-    print(f"\n===== Road Works =====\n{markdown_road_works}\n")
-    print(f"\n===== Roadside Furniture =====\n{markdown_roadside_furniture}\n")
+    for key, prompt in prompts.items():
+        logger.info(f"📝 Generating markdown for: {key}")
+        markdown = query_deepseek(prompt)
+        markdown_outputs[key] = markdown
+        logger.debug(f"📄 Markdown output for {key}:\n{markdown}")
 
-    return markdown_structure, markdown_road_works, markdown_roadside_furniture
+    return (
+        markdown_outputs["Structures Work"],
+        markdown_outputs["Road works (including pavement)"],
+        markdown_outputs["Roadside furniture"]
+    )
+
 
 
 
