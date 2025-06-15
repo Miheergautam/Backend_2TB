@@ -639,27 +639,3 @@ def extract_zone_bc_image_info(pdf_path: str, start_page: int, end_page: int, re
         print("✅ Final summarized TCS and Road Works content added to results.")
     else:
         print("⚠️ No valid image content found. Nothing to summarize.")
-
-
-# =============================================================================
-# Processing
-# =============================================================================
-
-
-def convert_list_values_to_markdown(results: dict) -> None:
-    for key in results:
-        value = results[key]
-
-        if isinstance(value, list):
-            markdown = f"## {key.replace('_', ' ').title()}\n"
-            for idx, item in enumerate(value, 1):
-                markdown += f"{idx}. {item.strip()}\n"
-            results[key] = markdown  # Replace the list with markdown string
-
-    results["GEOMETRIC_DESIGN"] = results["GEOMETRIC_DESIGN"] + results["PAVEMENT"] + results["IMAGE_SUMMARY"]
-    results["TRAFFIC_CONTROL"] += results["PROJECT_FACILITIES"]
-    del results["PAVEMENT"]
-    del results["PROJECT_FACILITIES"]
-    del results["IMAGE_SUMMARY"]
-
-
