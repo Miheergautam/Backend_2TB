@@ -1,0 +1,56 @@
+2025-06-15 14:26:42,659 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 14:26:42,908 - ERROR - Error processing C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip: Cannot find working tool
+2025-06-15 14:26:42,921 - INFO - Processing completed.
+2025-06-15 14:28:41,331 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 14:28:41,559 - ERROR - Error processing C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip: Cannot find working tool
+2025-06-15 14:28:41,560 - INFO - Processing completed.
+2025-06-15 14:35:16,755 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 14:45:39,775 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 14:48:18,521 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 14:48:20,097 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:48:20,243 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:48:20,455 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:48:20,591 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:48:20,606 - INFO - Processed C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip successfully.
+2025-06-15 14:53:44,534 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 14:53:46,334 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:53:46,700 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:53:47,112 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:53:47,470 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:53:47,474 - INFO - Processed C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip successfully.
+2025-06-15 14:54:53,355 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 14:54:55,117 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:54:55,252 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:54:55,458 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:54:55,597 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 14:54:55,602 - INFO - Processed C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip successfully.
+2025-06-15 14:58:41,956 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 14:59:18,573 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 14:59:56,889 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 15:03:14,630 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 15:03:53,945 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 15:05:35,894 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip
+2025-06-15 15:11:45,299 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\Backend_2TB\processed2_files\86860221.zip
+2025-06-15 15:11:45,299 - INFO - Creating directory: processed2_files
+2025-06-15 15:11:45,299 - INFO - Directory creation attempted.
+2025-06-15 15:11:46,053 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 15:11:46,194 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 15:11:46,440 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 15:11:46,584 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 15:23:21,813 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\Backend_2TB\processed2_files\86860221.zip
+2025-06-15 15:23:21,813 - INFO - Creating directory: processed2_files
+2025-06-15 15:23:21,814 - INFO - Directory creation attempted.
+2025-06-15 15:23:47,370 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\Backend_2TB\processed2_files\86860221.zip
+2025-06-15 15:23:47,370 - INFO - Creating directory: processed2_files
+2025-06-15 15:23:47,370 - INFO - Directory creation attempted.
+2025-06-15 15:23:47,806 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 15:23:47,935 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 15:23:48,079 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 15:23:48,208 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 15:25:48,760 - INFO - Starting processing for C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\Backend_2TB\processed2_files\86860221.zip
+2025-06-15 15:25:48,760 - INFO - Creating directory: processed2_files
+2025-06-15 15:25:48,760 - INFO - Directory creation attempted.
+2025-06-15 15:25:49,199 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 15:25:49,343 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 15:25:49,485 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-15 15:25:49,618 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"

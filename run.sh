@@ -1,0 +1,1 @@
+python main.py "C:\Users\kshub\OneDrive\Documents\KnowledgeEdgeAI\tender\folder_org\downloads copy\downloads copy\86860221.zip"

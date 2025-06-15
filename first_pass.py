@@ -16,6 +16,16 @@ import json
 
 client = Groq(api_key="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")
 
+"""
+Organization Type Enums:
+1. Item-rate: Traditional contract where payment is made based on measured quantities of work
+2. EPC (Engineering, Procurement, Construction): Turnkey contract where contractor handles all aspects
+3. HAM (Hybrid Annuity Model): Public-private partnership with 40% government funding
+4. BOT (Build-Operate-Transfer): Private entity builds, operates for concession period, then transfers
+"""
+
+TENDER_TYPES = ["item-rate", "epc", "ham", "bot"]
+
 def validate_tender_type(tender_type):
     """Validate and normalize tender type"""
     tender_type = tender_type.lower().strip()
@@ -41,7 +51,7 @@ def analyze_with_groq(file_path, answers):
                                 {
                                     "type": "text",
                                     "text": "Extract these exact details from the tender document:\n"
-                                            "1. the Length of road to be worked on - only numbers like '5.2'\n"
+                                            "1. the Length of road (KM) to be worked on - only numbers like '5.2'\n"
                                             "2. Type of Tender - must be one of: item-rate, epc, ham, bot\n"
                                             "3. Road location name - only official name from document\n"
                                             "Return ONLY as valid JSON with these keys: "
@@ -71,7 +81,7 @@ def analyze_with_groq(file_path, answers):
                         {
                             "role": "user",
                             "content": f"Extract these exact details from the tender document:\n"
-                                      "1. Length of road to be worked on - only numbers like '5.2'\n"
+                                      "1. Length of road (KM) to be worked on - only numbers like '5.2'\n"
                                       "2. Type of Tender - must be one of: item-rate, epc, ham, bot\n"
                                       "3. Road location name - only official name from document\n"
                                       "Document content:\n{text_content}\n"
@@ -91,12 +101,13 @@ def analyze_with_groq(file_path, answers):
             data = json.loads(response)
             updated = False
 
-            # Validate and update answers
+
             if "length_of_road" in data and not answers.get("length_of_road"):
                 try:
-                    answers["length_of_road"] = float(data["length_of_road"])
-                    updated = True
-                except ValueError:
+                    if data["length_of_road"] is not None:
+                        answers["length_of_road"] = float(data["length_of_road"])
+                        updated = True
+                except (ValueError, TypeError):
                     pass
 
             if "tender_type" in data and not answers.get("tender_type"):
@@ -115,7 +126,7 @@ def analyze_with_groq(file_path, answers):
             # Check if we have all answers
             if all(k in answers for k in ["length_of_road", "tender_type", "road_location"]):
                 print("\n✅ All answers found!")
-                return True
+                return answers
 
         except json.JSONDecodeError:
             print("Invalid JSON response")
@@ -123,29 +134,29 @@ def analyze_with_groq(file_path, answers):
     except Exception as e:
         print(f"Error analyzing with Groq: {e}")
 
-    return False
+    return answers
 
 def process_pdf(file_path, answers):
     """Process PDF file - convert first 2 pages to images and analyze"""
     try:
-        images = convert_from_path(file_path, first_page=1, last_page=2)
+        images = convert_from_path(file_path, first_page=1, last_page=2, poppler_path = "C:\Program Files\poppler-24.08.0\Library\bin")
         for i, image in enumerate(images):
             screenshot_path = f"{os.path.splitext(file_path)[0]}_page_{i+1}.png"
             image.save(screenshot_path, 'PNG')
             if analyze_with_groq(screenshot_path, answers):
-                return True
+                return answers
     except Exception as e:
         print(f"Error processing PDF: {e}")
-    return False
+    return answers
 
 def process_image(file_path, answers):
     """Process image file and analyze"""
     try:
         if analyze_with_groq(file_path, answers):
-            return True
+            return answers
     except Exception as e:
         print(f"Error processing image: {e}")
-    return False
+    return answers
 
 def process_word(file_path, answers):
     """Convert DOC/DOCX to PDF and process"""
@@ -158,7 +169,7 @@ def process_word(file_path, answers):
             return process_pdf(pdf_path, answers)
     except Exception as e:
         print(f"Error processing Word file: {e}")
-    return False
+    return answers
 
 def process_excel(file_path, answers):
     """Process Excel file and analyze - first 10000 tokens only"""
@@ -186,7 +197,7 @@ def process_excel(file_path, answers):
 
                 print(f"Saved first 10000 tokens: {screenshot_path}")
                 if analyze_with_groq(screenshot_path, answers):
-                    return True
+                    return answers
 
         elif ext == ".xls":
             wb = xlrd.open_workbook(file_path)
@@ -208,11 +219,11 @@ def process_excel(file_path, answers):
 
                 print(f"Saved first 10000 tokens: {screenshot_path}")
                 if analyze_with_groq(screenshot_path, answers):
-                    return True
+                    return answers
 
     except Exception as e:
         print(f"Error processing Excel file: {e}")
-    return False
+    return answers
 
 def process_files(root_dir):
     """Process all supported files in directory"""

@@ -26,15 +26,7 @@ MODEL_NAME = "deepseek-chat"
 
 SERPAPI_API_KEY = "ee9869f199c55efdc0ae10df13c2d11b2028c7baf194ef856ab88bd00cf6822a"
 
-"""
-Organization Type Enums:
-1. Item-rate: Traditional contract where payment is made based on measured quantities of work
-2. EPC (Engineering, Procurement, Construction): Turnkey contract where contractor handles all aspects
-3. HAM (Hybrid Annuity Model): Public-private partnership with 40% government funding
-4. BOT (Build-Operate-Transfer): Private entity builds, operates for concession period, then transfers
-"""
-
-TENDER_TYPES = ["item-rate", "epc", "ham", "bot"]
+rarfile.UNRAR_TOOL = r"C:\Program Files (x86)\UnRAR.exe"
 
 
 def unzip_all_files(root_dir):
