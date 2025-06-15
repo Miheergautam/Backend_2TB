@@ -100,9 +100,12 @@ def analyze_with_groq(file_path, answers):
                     answers["tender_type"] = tender_type
                     updated = True
 
+            
             if "road_location" in data and not answers.get("road_location"):
-                answers["road_location"] = data["road_location"].strip()
-                updated = True
+                location = data["road_location"]
+                if isinstance(location, str):
+                    answers["road_location"] = location.strip()
+                    updated = True
 
             if updated:
                 logging.info(f"Updated answers: {answers}")
