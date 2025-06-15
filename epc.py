@@ -492,10 +492,10 @@ def process_zone_cd(pdf_path: str, start_page: int, end_page: int, page_chunk_si
     print("✅ Final summarized Project Facilities and added to results.")
 
 
+
 # =============================================================================
 # 🏗️ Zone HI
 # =============================================================================
-
 
 def extract_zone_hi_details(text_chunk: str) -> str:
     prompt = f"""
@@ -505,19 +505,18 @@ def extract_zone_hi_details(text_chunk: str) -> str:
 
               ✅ Respond strictly in Markdown **table format**.
               - Do NOT include works with zero percent weightage
-              - Do NOT leave any cells blank. Every row must explicitly include: Sub-Work, Stage ,Weightage. If a Sub-Work or Stage repeats across multiple rows, repeat it explicitly in each row.
+              - Do NOT leave any cells blank. Every row must explicitly include: Sub-Work, Stage ,Weightage.
               - Avoid using ditto marks, hyphens (-), or blank cells to imply repeated values — always fill them in.
-              - Make a seperate table for major works, and only include their subworks in that table
-              - Do not forget to include the percentge of major work in heading above table
+              - Make a separate table for major works, and only include their subworks in that table
+              - Do not forget to include the percentage of major work in heading above table
 
               **Examples**:
               ### Payment Weightage
               | Work Item        | Stage          | Weightage |
               |------------------|----------------|-----------|
               | Bridge Works     | Earthwork      | 22.70%    |
-              | Protection Works | Breast Wall    | 59.32%    |
 
-              ❌ Do NOT include any headings, intro text, notes, explanations, or layout details, citations or conversational fluff ("After reviewing...").
+              ❌ Do NOT include any headings, intro text, notes, explanations, or layout details, citations or conversational fluff.
 
               Here is the document chunk:
 
@@ -529,7 +528,7 @@ def extract_zone_hi_details(text_chunk: str) -> str:
 def process_zone_hi(pdf_path: str, start_page: int, end_page: int, page_chunk_size: int = 10, results: dict = None) -> None:
     extracted_chunks = []
 
-    print(f"\n🚀 Starting Zone HI Extraction\n📄 PDF: {pdf_path}\n📚 Pages: {start_page} to {end_page}")
+    logging.info(f"🚀 Starting Zone HI Extraction: PDF={pdf_path}, Pages={start_page}-{end_page}")
 
     with pdfplumber.open(pdf_path) as pdf:
         pages = [extract_page_content(pdf.pages[i]) for i in range(start_page - 1, end_page)]
@@ -537,30 +536,27 @@ def process_zone_hi(pdf_path: str, start_page: int, end_page: int, page_chunk_si
     for i in range(0, len(pages), page_chunk_size):
         chunk_text = "\n".join(pages[i:i + page_chunk_size])
         page_range = f"{start_page + i}–{min(start_page + i + page_chunk_size - 1, end_page)}"
-        print(f"\n🚧 Processing pages {page_range}...")
+        logging.info(f"🚧 Processing pages {page_range}...")
 
         try:
             output = extract_zone_hi_details(chunk_text)
-            print(f"✅ Payment table extracted for pages {page_range}.")
+            logging.info(f"✅ Payment table extracted for pages {page_range}.")
             extracted_chunks.append(output)
         except Exception as e:
-            print(f"❌ Error processing pages {page_range}: {e}")
-            continue
+            logging.error(f"❌ Error processing pages {page_range}: {e}")
 
     results["PAYMENT_WEIGHTAGE"] = extracted_chunks
-    print("✅ Final Payment Weightage tables added to results.")
+    logging.info("✅ Final Payment Weightage tables added to results.")
 
 
 # =============================================================================
-# Image Analysis
+# 📸 Image Analysis
 # =============================================================================
 
-
-# Function to render a PDF page to an image
-def render_page_to_image(page) -> Image.Image:
+def render_page_to_image(page) -> bytes:
     return page.get_pixmap(dpi=150).pil_tobytes(format="PNG")
 
-# Function to analyze a single page with Groq
+
 def analyze_full_page_with_groq(pil_image_bytes: bytes) -> str:
     img_base64 = base64.b64encode(pil_image_bytes).decode("utf-8")
     image_data_url = f"data:image/png;base64,{img_base64}"
@@ -571,14 +567,8 @@ def analyze_full_page_with_groq(pil_image_bytes: bytes) -> str:
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "text",
-                        "text": "This is a page from an Indian tender Schedule B. Extract all useful content from it. Format it into readable markdown tables and bullet points. Include data from drawings, tables, or other visual information."
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": image_data_url}
-                    }
+                    {"type": "text", "text": "This is a page from an Indian tender Schedule B. Extract all useful content from it. Format it into readable markdown tables and bullet points. Include data from drawings, tables, or other visual information."},
+                    {"type": "image_url", "image_url": {"url": image_data_url}}
                 ]
             }
         ],
@@ -590,52 +580,54 @@ def analyze_full_page_with_groq(pil_image_bytes: bytes) -> str:
 
     return completion.choices[0].message.content.strip()
 
-# Function to check if a PDF page has images
+
 def page_has_images(page) -> bool:
     return len(page.get_images(full=True)) > 0
 
-# Main driver function
+
 def extract_zone_bc_image_info(pdf_path: str, start_page: int, end_page: int, results: dict = None) -> None:
     doc = fitz.open(pdf_path)
     all_responses = []
 
-    print(f"\n🖼️ Extracting image-based info from Zone BC pages {start_page} to {end_page}")
+    logging.info(f"🖼️ Extracting image-based info from Zone BC pages {start_page}–{end_page}")
 
     for page_num in range(start_page - 1, end_page):
         page = doc.load_page(page_num)
         if page_has_images(page):
-            print(f"📸 Analyzing Page {page_num + 1} (has images)...")
-            image_bytes = render_page_to_image(page)
+            logging.info(f"📸 Analyzing Page {page_num + 1} (has images)...")
             try:
+                image_bytes = render_page_to_image(page)
                 response = analyze_full_page_with_groq(image_bytes)
-                all_responses.append(f"\n### Page {page_num + 1}\n" + response)
+                all_responses.append(f"\n### Page {page_num + 1}\n{response}")
             except Exception as e:
-                print(f"❌ Error analyzing Page {page_num + 1}: {e}")
+                logging.error(f"❌ Error analyzing Page {page_num + 1}: {e}")
 
     combined_text = "\n".join(all_responses)
 
     if combined_text.strip():
-        print("\n🧠 Sending extracted image data for final summarization...")
+        logging.info("🧠 Sending extracted image data for final summarization...")
 
-        final_completion = groq_client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[
-                {
-                    "role": "user",
-                    "content": (
-                        "Based on the extracted information below, give detailed info on everything specifically related "
-                        "to **TCS** , **Road Works** and **Pavement** in structured markdown format. Only mention the **non-zero works**:\n\n"
-                        + combined_text
-                    )
-                }
-            ],
-            temperature=0.4,
-            max_completion_tokens=2048,
-            top_p=1,
-            stream=False,
-        )
-
-        results["IMAGE_SUMMARY"] = final_completion.choices[0].message.content.strip()
-        print("✅ Final summarized TCS and Road Works content added to results.")
+        try:
+            final_completion = groq_client.chat.completions.create(
+                model="meta-llama/llama-4-scout-17b-16e-instruct",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": (
+                            "Based on the extracted information below, give detailed info on everything specifically related "
+                            "to **TCS** , **Road Works** and **Pavement** in structured markdown format. Only mention the **non-zero works**:\n\n"
+                            + combined_text
+                        )
+                    }
+                ],
+                temperature=0.4,
+                max_completion_tokens=2048,
+                top_p=1,
+                stream=False,
+            )
+            results["IMAGE_SUMMARY"] = final_completion.choices[0].message.content.strip()
+            logging.info("✅ Final summarized TCS and Road Works content added to results.")
+        except Exception as e:
+            logging.error(f"❌ Error during final summarization: {e}")
     else:
-        print("⚠️ No valid image content found. Nothing to summarize.")
+        logging.warning("⚠️ No valid image content found. Nothing to summarize.")
