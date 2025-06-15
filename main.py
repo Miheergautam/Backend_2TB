@@ -126,20 +126,18 @@ def process(zip_file_path):
         convert_list_values_to_markdown(results)
         clean_and_format_markdown_with_deepseek(results)
 
+        elif contract_type == "ham" or contract_type == "HAM":
+            logging.info("Processing for HAM contract type.")
+            from ham import analyze_folder, process_zone_bc, process_zone_ab, process_zone_cd, extract_zone_bc_image_info
 
-    elif contract_type == "ham" or contract_type == "HAM":
-        logging.info("Processing for HAM contract type.")
-        from ham import analyze_folder, process_zone_bc, process_zone_ab, process_zone_cd, extract_zone_bc_image_info
-
-        
-        output = analyze_folder(WORKING_DIR)
-        zone_bc_start_page = output.get("Schedule-B").get("page")
-        zone_bc_end_page = output.get("Schedule-C").get("page")-1
-        zone_cd_start_page = output.get("Schedule-C").get("page")
-        zone_cd_end_page = output.get("Schedule-D").get("page")-1
-        zone_ab_start_page = output.get("Schedule-A").get("page")
-        zone_ab_end_page = output.get("Schedule-A").get("page")+4
-        pdf_path = output.get("Schedule-B").get("pdf")
+            output = analyze_folder(WORKING_DIR)
+            zone_bc_start_page = output.get("Schedule-B").get("page")
+            zone_bc_end_page = output.get("Schedule-C").get("page")-1
+            zone_cd_start_page = output.get("Schedule-C").get("page")
+            zone_cd_end_page = output.get("Schedule-D").get("page")-1
+            zone_ab_start_page = output.get("Schedule-A").get("page")
+            zone_ab_end_page = output.get("Schedule-A").get("page")+4
+            pdf_path = output.get("Schedule-B").get("pdf")
 
         results = {}
         process_zone_bc(pdf_path, zone_bc_start_page, zone_bc_end_page, results=results)
@@ -149,39 +147,25 @@ def process(zip_file_path):
         convert_list_values_to_markdown(results)
         clean_and_format_markdown_with_deepseek(results)
 
-        #######
-        #send the result to mongo db
-        #######
+        elif contract_type == "item-rate" or contract_type == "ITEM-RATE":
+            logging.info("Processing for Item-rate contract type.")
+            folder_path = WORKING_DIR
+            from item_rate import classify_and_summarize, generate_markdown_summaries, extract_boq_with_deepseek
+            
+            file_path = find_first_excel_file(folder_path)
+            final_df = extract_boq_with_deepseek(file_path)
+            # print(final_df.head())
+            final_df.to_csv("cleaned_boq_outputs.csv", index=False)
+            csv_path = "cleaned_boq_outputs.csv"  # Update path as needed
+            categories = classify_and_summarize(csv_path)
+            markdown_structure, markdown_road_works, markdown_roadside_furniture = generate_markdown_summaries(categories)
 
-    elif contract_type == "item-rate" or contract_type == "ITEM-RATE":
-        logging.info("Processing for Item-rate contract type.")
-        folder_path = WORKING_DIR
-        from item_rate import classify_and_summarize, generate_markdown_summaries, extract_boq_with_deepseek
-        
-        file_path = find_first_excel_file(folder_path)
-        final_df = extract_boq_with_deepseek(file_path)
-        # print(final_df.head())
-        final_df.to_csv("cleaned_boq_outputs.csv", index=False)
-        csv_path = "cleaned_boq_outputs.csv"  # Update path as needed
-        categories = classify_and_summarize(csv_path)
-
-        markdown_structure, markdown_road_works, markdown_roadside_furniture = generate_markdown_summaries(categories)
-
-        # Combine all classified items into one DataFrame
-        # combined_boq_df = pd.DataFrame(
-        #     categories["Road works (including pavement)"] +
-        #     categories["Roadside furniture"] +
-        #     categories["Structures Work"]
-        # )
-        ######################
-        # send categories, markdown_structure, markdown_road_works, markdown_roadside_furniture to mangodb
-        ######################
-
-        print("Categories:", categories
-            )
-        print("Markdown Structure:", markdown_structure)
-        print("Markdown Road Works:", markdown_road_works)
-        print("Markdown Roadside Furniture:", markdown_roadside_furniture)
+            results = {
+                "categories": categories,
+                "markdown_structure": markdown_structure,
+                "markdown_road_works": markdown_road_works,
+                "markdown_roadside_furniture": markdown_roadside_furniture
+            }
 
     elif contract_type == "bot" or contract_type == "BOT":
         logging.info("Processing for BOT contract type.")
