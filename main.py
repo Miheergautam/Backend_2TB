@@ -69,11 +69,11 @@ def process(zip_file_path):
         answers = process_files(WORKING_DIR)
         logging.info("Completed first pass document extraction.")
 
-        contract_type = answers.get('organization_type', 'Not found').upper()
-        road_length = answers.get('length_of_road', 'Not found').upper()
-        road_location = answers.get('road_location', 'Not found').upper()
+        contract_type = answers.get('organization_type', 'Not found')
+        road_length = answers.get('length_of_road', 'Not found')
+        road_location = answers.get('road_location', 'Not found')
 
-        if any(val == "NOT FOUND" for val in [contract_type, road_length, road_location]):
+        if any(val == "Not found" for val in [contract_type, road_length, road_location]):
             logging.warning("Some required fields were not found.")
             return
 
@@ -86,7 +86,7 @@ def process(zip_file_path):
         # Handle contract type-specific logic
         results = {}
 
-        if contract_type in ("EPC",):
+        if contract_type in ("EPC", "epc"):
             logging.info("Processing EPC contract type.")
             from epc import analyze_folder, process_zone_bc, process_zone_ab, process_zone_hi, process_zone_cd, extract_zone_bc_image_info
 
@@ -110,7 +110,7 @@ def process(zip_file_path):
             convert_list_values_to_markdown(results)
             clean_and_format_markdown_with_deepseek(results)
 
-        elif contract_type in ("HAM",):
+        elif contract_type in ("HAM", "ham"):
             logging.info("Processing HAM contract type.")
             from ham import analyze_folder, process_zone_bc, process_zone_ab, process_zone_cd, extract_zone_bc_image_info
 
@@ -129,7 +129,7 @@ def process(zip_file_path):
             convert_list_values_to_markdown(results)
             clean_and_format_markdown_with_deepseek(results)
 
-        elif contract_type in ("ITEM-RATE", "ITEM RATE"):
+        elif contract_type in ("ITEM-RATE", "item-rate"):
             logging.info("Processing Item-rate contract type.")
             from item_rate import classify_and_summarize, generate_markdown_summaries, extract_boq_with_deepseek
 
@@ -147,7 +147,7 @@ def process(zip_file_path):
                 "markdown_roadside_furniture": markdown_roadside_furniture
             })
 
-        elif contract_type in ("BOT",):
+        elif contract_type in ("BOT", "bot"):
             logging.info("Processing BOT contract type.")
             # Implementation can be added here
 
