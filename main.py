@@ -114,12 +114,10 @@ def process(zip_file_path):
             convert_list_values_to_markdown(results)
             clean_and_format_markdown_with_deepseek(results)
 
-
         elif contract_type == "ham" or contract_type == "HAM":
             logging.info("Processing for HAM contract type.")
             from ham import analyze_folder, process_zone_bc, process_zone_ab, process_zone_cd, extract_zone_bc_image_info
 
-            
             output = analyze_folder(WORKING_DIR)
             zone_bc_start_page = output.get("Schedule-B").get("page")
             zone_bc_end_page = output.get("Schedule-C").get("page")-1
@@ -137,10 +135,6 @@ def process(zip_file_path):
             convert_list_values_to_markdown(results)
             clean_and_format_markdown_with_deepseek(results)
 
-            #######
-            #send the result to mongo db
-            #######
-
         elif contract_type == "item-rate" or contract_type == "ITEM-RATE":
             logging.info("Processing for Item-rate contract type.")
             folder_path = WORKING_DIR
@@ -152,24 +146,14 @@ def process(zip_file_path):
             final_df.to_csv("cleaned_boq_outputs.csv", index=False)
             csv_path = "cleaned_boq_outputs.csv"  # Update path as needed
             categories = classify_and_summarize(csv_path)
-
             markdown_structure, markdown_road_works, markdown_roadside_furniture = generate_markdown_summaries(categories)
 
-            # Combine all classified items into one DataFrame
-            # combined_boq_df = pd.DataFrame(
-            #     categories["Road works (including pavement)"] +
-            #     categories["Roadside furniture"] +
-            #     categories["Structures Work"]
-            # )
-            ######################
-            # send categories, markdown_structure, markdown_road_works, markdown_roadside_furniture to mangodb
-            ######################
-
-            print("Categories:", categories
-                )
-            print("Markdown Structure:", markdown_structure)
-            print("Markdown Road Works:", markdown_road_works)
-            print("Markdown Roadside Furniture:", markdown_roadside_furniture)
+            results = {
+                "categories": categories,
+                "markdown_structure": markdown_structure,
+                "markdown_road_works": markdown_road_works,
+                "markdown_roadside_furniture": markdown_roadside_furniture
+            }
 
         elif contract_type == "bot" or contract_type == "BOT":
             logging.info("Processing for BOT contract type.")
