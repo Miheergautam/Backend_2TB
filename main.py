@@ -15,7 +15,7 @@ import json
 
 import pandas as pd
 
-from utils import unzip_all_files, find_first_excel_file
+from utils import unzip_all_files, find_first_excel_file, convert_list_values_to_markdown, clean_and_format_markdown_with_deepseek
 from site_images import process_and_display_images
 from location_insights import find_location_parameters
 from first_pass import process_files
@@ -84,13 +84,14 @@ def process(zip_file_path):
         #########
         # Save the final images and geo location to mongodb
         #########
+        print(f"Final images: {final_images}")
+        print(f"Geo location: {geo_location}")
 
         
 
         if contract_type == "epc" or contract_type == "EPC":
             logging.info("Processing for EPC contract type.")
             from epc import analyze_folder, process_zone_bc, process_zone_ab, process_zone_hi, process_zone_cd, extract_zone_bc_image_info
-            from utils import convert_list_values_to_markdown, clean_and_format_markdown_with_deepseek
 
             output = analyze_folder(WORKING_DIR)
             zone_bc_start_page = output.get("Schedule-B").get("page")
@@ -117,7 +118,7 @@ def process(zip_file_path):
         elif contract_type == "ham" or contract_type == "HAM":
             logging.info("Processing for HAM contract type.")
             from ham import analyze_folder, process_zone_bc, process_zone_ab, process_zone_cd, extract_zone_bc_image_info
-            from utils import convert_list_values_to_markdown, clean_and_format_markdown_with_deepseek
+
             
             output = analyze_folder(WORKING_DIR)
             zone_bc_start_page = output.get("Schedule-B").get("page")
@@ -143,7 +144,7 @@ def process(zip_file_path):
         elif contract_type == "item-rate" or contract_type == "ITEM-RATE":
             logging.info("Processing for Item-rate contract type.")
             folder_path = WORKING_DIR
-            
+            from item_rate import classify_and_summarize, generate_markdown_summaries, extract_boq_with_deepseek
             
             file_path = find_first_excel_file(folder_path)
             final_df = extract_boq_with_deepseek(file_path)
@@ -163,6 +164,12 @@ def process(zip_file_path):
             ######################
             # send categories, markdown_structure, markdown_road_works, markdown_roadside_furniture to mangodb
             ######################
+
+            print("Categories:", categories
+                )
+            print("Markdown Structure:", markdown_structure)
+            print("Markdown Road Works:", markdown_road_works)
+            print("Markdown Roadside Furniture:", markdown_roadside_furniture)
 
         elif contract_type == "bot" or contract_type == "BOT":
             logging.info("Processing for BOT contract type.")
