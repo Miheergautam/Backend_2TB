@@ -19,7 +19,6 @@ from groq import Groq
 logging.getLogger('pdfminer').setLevel(logging.ERROR)
 logging.getLogger("fitz").setLevel(logging.ERROR)
 
-# Groq Setup
 groq_client = Groq(api_key="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")
 
 from utils import query_deepseek
