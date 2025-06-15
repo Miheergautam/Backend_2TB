@@ -211,6 +211,10 @@ def process_files(root_dir):
             file_path = os.path.join(root, file)
             ext = os.path.splitext(file)[1].lower()
 
+            if os.path.getsize(file_path) == 0:
+            logging.warning(f"Skipping empty file: {file_path}")
+            continue
+
             if ext in supported_extensions:
                 try:
                     logging.info(f"Processing file: {file_path}")
