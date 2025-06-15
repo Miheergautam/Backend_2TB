@@ -15,7 +15,11 @@ import json
 
 import pandas as pd
 
-from utils import unzip_all_files, process_files, find_first_excel_file, process_and_display_images, find_location_parameters
+from utils import unzip_all_files, process_files, find_first_excel_file, process_and_display_images, find_location_parameters,clean_and_format_markdown_with_deepseek
+from item_rate import analyze_folder, process_zone_bc, process_zone_ab, process_zone_hi, process_zone_cd, extract_zone_bc_image_info, convert_list_values_to_markdown
+from item_rate import extract_boq_with_deepseek, classify_and_summarize, generate_markdown_summaries
+from item_rate import analyze_folder, process_zone_bc, process_zone_ab, process_zone_cd, extract_zone_bc_image_info, convert_list_values_to_markdown
+
 
 # start a logging session and log file to be saved in logs folder
 import logging
@@ -89,7 +93,7 @@ def process(zip_file_path):
 
         if contract_type == "epc" or contract_type == "EPC":
             logging.info("Processing for EPC contract type.")
-            from item_rate import analyze_folder, process_zone_bc, process_zone_ab, process_zone_hi, process_zone_cd, extract_zone_bc_image_info, convert_list_values_to_markdown, clean_and_format_markdown_with_deepseek
+            
 
             output = analyze_folder(WORKING_DIR)
             zone_bc_start_page = output.get("Schedule-B").get("page")
@@ -120,7 +124,7 @@ def process(zip_file_path):
             logging.info("Processing for Item-rate contract type.")
             folder_path = WORKING_DIR
             
-            from item_rate import extract_boq_with_deepseek, classify_and_summarize, generate_markdown_summaries
+            
             file_path = find_first_excel_file(folder_path)
             final_df = extract_boq_with_deepseek(file_path)
             # print(final_df.head())
@@ -146,7 +150,7 @@ def process(zip_file_path):
 
         elif contract_type == "ham" or contract_type == "HAM":
             logging.info("Processing for HAM contract type.")
-            from item_rate import analyze_folder, process_zone_bc, process_zone_ab, process_zone_cd, extract_zone_bc_image_info, convert_list_values_to_markdown, clean_and_format_markdown_with_deepseek
+            
             output = analyze_folder(WORKING_DIR)
             zone_bc_start_page = output.get("Schedule-B").get("page")
             zone_bc_end_page = 166

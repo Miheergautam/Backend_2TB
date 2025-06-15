@@ -19,8 +19,8 @@ from groq import Groq
 # Initialize Groq client
 groq_client = Groq(api_key="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")
 
-from utils import query_deepseek
-from utils import extract_page_content
+from Backend_2TB.utils import query_deepseek
+from Backend_2TB.utils import extract_page_content
 
 
 # Set up logging  
