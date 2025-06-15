@@ -1,6 +1,7 @@
 import os
 import zipfile
 import rarfile
+import logging
 import requests
 import tempfile
 from PIL import Image
@@ -14,51 +15,54 @@ from groq import Groq
 import shutil
 import json
 
-# Initialize Groq client
+
 GROQ_API_KEY = "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"
 client = Groq(api_key=GROQ_API_KEY)
 
-
-# DeepSeek Setup
 DEEPSEEK_API_KEY = "sk-fe754eb8e5a04ec79de5c71064b5e25d"  # Replace with your key
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 MODEL_NAME = "deepseek-chat"
 
 SERPAPI_API_KEY = "ee9869f199c55efdc0ae10df13c2d11b2028c7baf194ef856ab88bd00cf6822a"
 
+
+# Path to UnRAR executable
 rarfile.UNRAR_TOOL = r"C:\Program Files (x86)\UnRAR.exe"
 
-
 def unzip_all_files(root_dir):
-    """Recursively unzip all ZIP and RAR files in directory"""
-    extracted_files = []
+    """
+    Recursively unzips all ZIP and RAR files found in the given directory.
+    Returns a list of all directories where files were extracted.
+    """
+    extracted_dirs = []
 
     for root, _, files in os.walk(root_dir):
         for file in files:
             file_path = os.path.join(root, file)
-            try:
-                if file.lower().endswith('.zip'):
-                    with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                        extract_path = os.path.join(root, os.path.splitext(file)[0])
-                        os.makedirs(extract_path, exist_ok=True)
-                        zip_ref.extractall(extract_path)
-                        logging.info(f"Extracted ZIP: {file_path} to {extract_path}")
-                        extracted_files.append(extract_path)
-                        extracted_files.extend(unzip_all_files(extract_path))
 
-                elif file.lower().endswith('.rar'):
-                    with rarfile.RarFile(file_path, 'r') as rar_ref:
-                        extract_path = os.path.join(root, os.path.splitext(file)[0])
-                        os.makedirs(extract_path, exist_ok=True)
+            try:
+                extract_path = os.path.join(root, os.path.splitext(file)[0])
+                os.makedirs(extract_path, exist_ok=True)
+
+                if file.lower().endswith(".zip"):
+                    with zipfile.ZipFile(file_path, "r") as zip_ref:
+                        zip_ref.extractall(extract_path)
+                        logging.info(f"Extracted ZIP: {file_path} → {extract_path}")
+                        extracted_dirs.append(extract_path)
+                        extracted_dirs.extend(unzip_all_files(extract_path))
+
+                elif file.lower().endswith(".rar"):
+                    with rarfile.RarFile(file_path, "r") as rar_ref:
                         rar_ref.extractall(extract_path)
-                        logging.info(f"Extracted RAR: {file_path} to {extract_path}")
-                        extracted_files.append(extract_path)
-                        extracted_files.extend(unzip_all_files(extract_path))
+                        logging.info(f"Extracted RAR: {file_path} → {extract_path}")
+                        extracted_dirs.append(extract_path)
+                        extracted_dirs.extend(unzip_all_files(extract_path))
 
             except (zipfile.BadZipFile, rarfile.BadRarFile, Exception) as e:
                 logging.error(f"Error extracting {file_path}: {e}")
 
-    return extracted_files
+    return extracted_dirs
+
 
 def call2_deepseek(system_prompt, user_prompt, MODEL_NAME="deepseek-reasoner"):
 
