@@ -42,6 +42,7 @@ def unzip_all_files(root_dir):
                         extract_path = os.path.join(root, os.path.splitext(file)[0])
                         os.makedirs(extract_path, exist_ok=True)
                         zip_ref.extractall(extract_path)
+                        logging.info(f"Extracted ZIP: {file_path} to {extract_path}")
                         extracted_files.append(extract_path)
                         extracted_files.extend(unzip_all_files(extract_path))
 
@@ -50,14 +51,14 @@ def unzip_all_files(root_dir):
                         extract_path = os.path.join(root, os.path.splitext(file)[0])
                         os.makedirs(extract_path, exist_ok=True)
                         rar_ref.extractall(extract_path)
+                        logging.info(f"Extracted RAR: {file_path} to {extract_path}")
                         extracted_files.append(extract_path)
                         extracted_files.extend(unzip_all_files(extract_path))
 
-            except (zipfile.BadZipFile, rarfile.BadRarFile) as e:
-                print(f"Error extracting {file_path}: {e}")
+            except (zipfile.BadZipFile, rarfile.BadRarFile, Exception) as e:
+                logging.error(f"Error extracting {file_path}: {e}")
 
     return extracted_files
-
 
 def call2_deepseek(system_prompt, user_prompt, MODEL_NAME="deepseek-reasoner"):
 
