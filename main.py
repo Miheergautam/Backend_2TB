@@ -69,7 +69,7 @@ def process(zip_file_path):
         answers = process_files(WORKING_DIR)
         logging.info("Completed first pass document extraction.")
 
-        contract_type = answers.get('organization_type', 'Not found')
+        contract_type = answers.get('tender_type', 'Not found')
         road_length = answers.get('length_of_road', 'Not found')
         road_location = answers.get('road_location', 'Not found')
 
