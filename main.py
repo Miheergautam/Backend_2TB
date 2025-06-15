@@ -2,7 +2,10 @@ import os
 import sys
 import zipfile
 import rarfile
+import shutil
 import tempfile
+import logging
+import pandas as pd
 from PIL import Image
 import sys
 from pdf2image import convert_from_path
@@ -11,189 +14,164 @@ import subprocess
 import xlrd
 import base64
 from groq import Groq
-import shutil
 import json
-
-import pandas as pd
 
 from utils import unzip_all_files, find_first_excel_file, convert_list_values_to_markdown, clean_and_format_markdown_with_deepseek
 from site_images import process_and_display_images
 from location_insights import find_location_parameters
 from first_pass import process_files
 
-# start a logging session and log file to be saved in logs folder
-import logging
-logging.basicConfig(
-    filename='logs/main.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-
-# Working directory
+# Constants
 WORKING_DIR = "processed2_files"
+LOG_DIR = "logs"
+LOG_FILE = os.path.join(LOG_DIR, "main.log")
 
+# Setup logging
+os.makedirs(LOG_DIR, exist_ok=True)
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
 
 def cleanup():
     """Remove working directory"""
     try:
         shutil.rmtree(WORKING_DIR)
-        print(f"Cleaned up {WORKING_DIR}")
+        logging.info(f"Cleaned up {WORKING_DIR}")
     except Exception as e:
-        print(f"Error during cleanup: {e}")
+        logging.error(f"Error during cleanup: {e}")
 
-
+def ensure_working_directory():
+    """Create working directory if not exists"""
+    try:
+        os.makedirs(WORKING_DIR, exist_ok=True)
+        logging.info(f"Created working directory: {WORKING_DIR}")
+    except Exception as e:
+        logging.error(f"Failed to create working directory: {e}")
+        raise
 
 def process(zip_file_path):
     """Main function to process the input zip file"""
-    # print(f"Creating directory: {WORKING_DIR}")
-    # Create log
-    logging.info(f"Creating directory: {WORKING_DIR}")
-    os.makedirs(WORKING_DIR, exist_ok=True)
-    # print("Directory creation attempted.")
-    logging.info("Directory creation attempted.")
+    try:
+        logging.info(f"Started processing for: {zip_file_path}")
+        ensure_working_directory()
 
-    
-    # try:
-    # Extract files
-    # with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-    #     zip_ref.extractall(WORKING_DIR)
+        shutil.move(zip_file_path, WORKING_DIR)
+        zip_all_files(WORKING_DIR)
+        logging.info("Extraction complete.")
 
-    # MOVE THE ZIP FILE TO WORKING DIRECTORY
-    # shutil.move(zip_file_path, WORKING_DIR)
-    # logging.info(f"Moved {zip_file_path} to {WORKING_DIR}")
-    # # # Process nested archives
-    # unzip_all_files(WORKING_DIR)
-    # logging.info(f"Unzipped all files in {WORKING_DIR}")
-    # exit(1)
-    # Process documents
-    answers = process_files(WORKING_DIR)
+        # Process first pass
+        answers = process_files(WORKING_DIR)
+        logging.info("Completed first pass document extraction.")
 
-    exit(1)
-    
-    contract_type = answers.get('organization_type', 'Not found').upper()
-    road_length = answers.get('length_of_road', 'Not found').upper()
-    road_location = answers.get('road_location', 'Not found').upper()
+        contract_type = answers.get('organization_type', 'Not found').upper()
+        road_length = answers.get('length_of_road', 'Not found').upper()
+        road_location = answers.get('road_location', 'Not found').upper()
 
-    if any([road_length, contract_type, road_location]) == 'Not found':
-        logging.warning("Some answers were not found in the documents.")
-        exit(1)
-    # # Print final answers
-    # print("\n=== Final Extracted Information ===")
-    # print(f"Road Length: {answers.get('length_of_road', 'Not found')} km")
-    # print(f"Contract Type: {answers.get('organization_type', 'Not found').upper()}")
-    # print(f"Location: {answers.get('road_location', 'Not found')}")
+        if any(val == "NOT FOUND" for val in [contract_type, road_length, road_location]):
+            logging.warning("Some required fields were not found.")
+            return
 
-    # return answers
-    logging.info(f"Processed {zip_file_path} successfully.")
+        geo_location = find_location_parameters(road_location)
+        final_images = process_and_display_images(road_location)
 
+        logging.info(f"Geo location: {geo_location}")
+        logging.info(f"Images found: {final_images}")
 
-
-    geo_location = find_location_parameters(road_location)
-    logging.info(f"Geo location for {road_location}: {geo_location}")
-
-    final_images = process_and_display_images(road_location)
-    logging.info(f"Final images for {road_location}: {final_images}")
-    #########
-    # Save the final images and geo location to mongodb
-    #########
-    print(f"Final images: {final_images}")
-    print(f"Geo location: {geo_location}")
-
-    
-
-    if contract_type == "epc" or contract_type == "EPC":
-        logging.info("Processing for EPC contract type.")
-        from epc import analyze_folder, process_zone_bc, process_zone_ab, process_zone_hi, process_zone_cd, extract_zone_bc_image_info
-
-        output = analyze_folder(WORKING_DIR)
-        zone_bc_start_page = output.get("Schedule-B").get("page")
-        zone_bc_end_page = output.get("Schedule-C").get("page")-1
-        zone_cd_start_page = output.get("Schedule-C").get("page")
-        zone_cd_end_page = output.get("Schedule-D").get("page")-1
-        zone_ab_start_page = output.get("Schedule-A").get("page")
-        zone_ab_end_page = output.get("Schedule-A").get("page")+4
-        zone_hi_start_page = output.get("Schedule-H").get("page")
-        zone_hi_end_page = output.get("Schedule-H").get("page")+9
-        pdf_path = output.get("Schedule-B").get("pdf")
-        pdf_path2 = output.get("Schedule-H").get("pdf")
-
+        # Handle contract type-specific logic
         results = {}
-        process_zone_bc(pdf_path, zone_bc_start_page, zone_bc_end_page, results=results)
-        process_zone_ab(pdf_path, zone_ab_start_page, zone_ab_end_page, results=results)
-        process_zone_hi(pdf_path2, zone_hi_start_page, zone_hi_end_page, results=results)
-        process_zone_cd(pdf_path, zone_cd_start_page, zone_cd_end_page, results=results)
-        extract_zone_bc_image_info(pdf_path, zone_bc_start_page, zone_bc_end_page, results=results)
-        convert_list_values_to_markdown(results)
-        clean_and_format_markdown_with_deepseek(results)
 
-        elif contract_type == "ham" or contract_type == "HAM":
-            logging.info("Processing for HAM contract type.")
+        if contract_type in ("EPC",):
+            logging.info("Processing EPC contract type.")
+            from epc import analyze_folder, process_zone_bc, process_zone_ab, process_zone_hi, process_zone_cd, extract_zone_bc_image_info
+
+            output = analyze_folder(WORKING_DIR)
+            pdf_path = output["Schedule-B"]["pdf"]
+            pdf_path2 = output["Schedule-H"]["pdf"]
+
+            # Extract page ranges
+            zone_ab_range = (output["Schedule-A"]["page"], output["Schedule-A"]["page"] + 4)
+            zone_bc_range = (output["Schedule-B"]["page"], output["Schedule-C"]["page"] - 1)
+            zone_cd_range = (output["Schedule-C"]["page"], output["Schedule-D"]["page"] - 1)
+            zone_hi_range = (output["Schedule-H"]["page"], output["Schedule-H"]["page"] + 9)
+
+            # Process all zones
+            process_zone_ab(pdf_path, *zone_ab_range, results=results)
+            process_zone_bc(pdf_path, *zone_bc_range, results=results)
+            process_zone_cd(pdf_path, *zone_cd_range, results=results)
+            process_zone_hi(pdf_path2, *zone_hi_range, results=results)
+            extract_zone_bc_image_info(pdf_path, *zone_bc_range, results=results)
+          
+            convert_list_values_to_markdown(results)
+            clean_and_format_markdown_with_deepseek(results)
+
+        elif contract_type in ("HAM",):
+            logging.info("Processing HAM contract type.")
             from ham import analyze_folder, process_zone_bc, process_zone_ab, process_zone_cd, extract_zone_bc_image_info
 
             output = analyze_folder(WORKING_DIR)
-            zone_bc_start_page = output.get("Schedule-B").get("page")
-            zone_bc_end_page = output.get("Schedule-C").get("page")-1
-            zone_cd_start_page = output.get("Schedule-C").get("page")
-            zone_cd_end_page = output.get("Schedule-D").get("page")-1
-            zone_ab_start_page = output.get("Schedule-A").get("page")
-            zone_ab_end_page = output.get("Schedule-A").get("page")+4
-            pdf_path = output.get("Schedule-B").get("pdf")
+            pdf_path = output["Schedule-B"]["pdf"]
 
-        results = {}
-        process_zone_bc(pdf_path, zone_bc_start_page, zone_bc_end_page, results=results)
-        process_zone_ab(pdf_path, zone_ab_start_page, zone_ab_end_page, results=results)
-        process_zone_cd(pdf_path, zone_cd_start_page, zone_cd_end_page, results=results)
-        extract_zone_bc_image_info(pdf_path, zone_bc_start_page, zone_bc_end_page, results=results)
-        convert_list_values_to_markdown(results)
-        clean_and_format_markdown_with_deepseek(results)
+            zone_ab_range = (output["Schedule-A"]["page"], output["Schedule-A"]["page"] + 4)
+            zone_bc_range = (output["Schedule-B"]["page"], output["Schedule-C"]["page"] - 1)
+            zone_cd_range = (output["Schedule-C"]["page"], output["Schedule-D"]["page"] - 1)
 
-        elif contract_type == "item-rate" or contract_type == "ITEM-RATE":
-            logging.info("Processing for Item-rate contract type.")
-            folder_path = WORKING_DIR
-            from item_rate import classify_and_summarize, generate_markdown_summaries, extract_boq_with_deepseek
+            process_zone_ab(pdf_path, *zone_ab_range, results=results)
+            process_zone_bc(pdf_path, *zone_bc_range, results=results)
+            process_zone_cd(pdf_path, *zone_cd_range, results=results)
+            extract_zone_bc_image_info(pdf_path, *zone_bc_range, results=results)
             
-            file_path = find_first_excel_file(folder_path)
+            convert_list_values_to_markdown(results)
+            clean_and_format_markdown_with_deepseek(results)
+
+        elif contract_type in ("ITEM-RATE", "ITEM RATE"):
+            logging.info("Processing Item-rate contract type.")
+            from item_rate import classify_and_summarize, generate_markdown_summaries, extract_boq_with_deepseek
+
+            file_path = find_first_excel_file(WORKING_DIR)
             final_df = extract_boq_with_deepseek(file_path)
-            # print(final_df.head())
             final_df.to_csv("cleaned_boq_outputs.csv", index=False)
-            csv_path = "cleaned_boq_outputs.csv"  # Update path as needed
-            categories = classify_and_summarize(csv_path)
+
+            categories = classify_and_summarize("cleaned_boq_outputs.csv")
             markdown_structure, markdown_road_works, markdown_roadside_furniture = generate_markdown_summaries(categories)
 
-            results = {
+            results.update({
                 "categories": categories,
                 "markdown_structure": markdown_structure,
                 "markdown_road_works": markdown_road_works,
                 "markdown_roadside_furniture": markdown_roadside_furniture
-            }
+            })
 
-    elif contract_type == "bot" or contract_type == "BOT":
-        logging.info("Processing for BOT contract type.")
-        pass
+        elif contract_type in ("BOT",):
+            logging.info("Processing BOT contract type.")
+            # Implementation can be added here
 
-    else:
-        logging.error(f"Unknown contract type: {contract_type}")
-        exit(1)
+        else:
+            logging.error(f"Unknown contract type: {contract_type}")
+            return
+            
+        logging.info("Processing completed successfully.")
 
-        
-
-    # except Exception as e:
-    #     # print(f"Error: {e}")
-    #     logging.error(f"Error processing {zip_file_path}: {e}")
-        # return {}
-    # finally:
-    #     cleanup()
-
+    except Exception as e:
+        logging.exception(f"Error during processing: {e}")
+    finally:
+        cleanup()
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        logging.error("Usage: python main.py <zip_file_path>")
+        sys.exit(1)
 
     zip_file_path = sys.argv[1]
-    # zip_file_path = "C:\\Users\\kshub\\OneDrive\\Documents\\KnowledgeEdgeAI\\tender\\folder_org\\downloads copy\\downloads copy\\86860221.zip"
-
     if not os.path.exists(zip_file_path):
-        print(f"File {zip_file_path} does not exist.")
+        logging.error(f"File {zip_file_path} does not exist.")
         sys.exit(1)
 
     logging.info(f"Starting processing for {zip_file_path}")
     process(zip_file_path)
-    logging.info("Processing completed.")
+
